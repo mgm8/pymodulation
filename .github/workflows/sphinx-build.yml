@@ -1,0 +1,47 @@
+#
+# sphinx-build.py
+# 
+# Copyright The PyModulation Contributors.
+# 
+# This file is part of PyModulation library.
+# 
+# PyModulation library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# PyModulation library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+# 
+# You should have received a copy of the GNU Lesser General Public License
+# along with PyModulation library. If not, see <http://www.gnu.org/licenses/>.
+# 
+#
+
+name: Documentation build
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    # Standard drop-in approach that should work for most people.
+    - uses: ammaraskar/sphinx-action@master
+      with:
+        docs-folder: "docs/"
+        pre-build-command: "pip install --upgrade pip"
+    # Create an artifact of the html output.
+    - uses: actions/upload-artifact@v4
+      with:
+        name: documentation_html
+        path: docs/_build/html/
