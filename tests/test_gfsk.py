@@ -1,5 +1,5 @@
 #
-# __init__.py
+# test_gfsk.py
 # 
 # Copyright The PyModulation Contributors.
 # 
@@ -20,4 +20,27 @@
 # 
 #
 
-from pymodulation.version import __version__
+import random
+
+from gfsk import GFSK
+
+def test_modulator_demodulator():
+    data = [random.randint(0, 255) for _ in range(1000)]
+
+    gfsk = GFSK(1.5, 0.5, 1200)
+
+    samples, fs, dur = gfsk.modulate(data)
+
+    demod_bits, signal = gfsk.demodulate(fs, samples)
+
+    data_res = list()
+
+    for i in range(1, len(demod_bits) - 1, 8):
+        result = int()
+        pos = 8 - 1
+        for j in range(8):
+            result = result | (demod_bits[i + j] << pos)
+            pos -= 1
+        data_res.append(result)
+
+    assert data == data_res

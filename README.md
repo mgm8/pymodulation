@@ -19,7 +19,8 @@
 
 ## Dependencies
 
-* None
+* NumPy
+* SciPy
 
 ## Installing
 
