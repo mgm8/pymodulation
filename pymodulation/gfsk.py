@@ -136,7 +136,10 @@ class GFSK:
         Computes the IQ data of the GFSK modulated signal.
 
         :param data: input integer list to modulate (bytes as integers)
+        :type: list
+
         :param L: oversampling factor
+        :type: int
 
         :return: I: I data of the modulated signal
         :return: Q: Q data of the modulated signal
@@ -176,7 +179,10 @@ class GFSK:
         Generates the GFSK modulated signal in time domain.
 
         :param data: input integer list to modulate (bytes as integers)
+        :type: list
+
         :param L: oversampling factor
+        :type: int
 
         :return: s_t: GFSK modulated signal with carrier s(t) (time domain)
         :return: samp: Sample rate S/s
@@ -197,13 +203,19 @@ class GFSK:
 
     def _gaussian_lpf(self, Tb, L, k):
         """
-        Generate filter coefficients of Gaussian low pass filter (used in gmsk_mod).
+        Generate filter coefficients of Gaussian low pass filter.
 
         :param Tb: bit period
+        :type: float
+
         :param L: oversampling factor (number of samples per bit)
+        :type: int
+
         :param k: span length of the pulse (bit interval)
+        :type: float
 
         :return h_norm: normalized filter coefficients of Gaussian LPF
+        :rtype: list
         """
         B = self.get_bt()/Tb    # Bandwidth of the filter
         # Truncated time limits for the filter
@@ -223,7 +235,7 @@ class GFSK:
         :rtype: list
         """
         res = list()
-        
+
         for i in n:
             res = res + [int(digit) for digit in bin(i)[2:].zfill(8)]
 
@@ -234,7 +246,9 @@ class GFSK:
         Perform GFSK demodulation.
 
         :param fs: TODO
+
         :param iq_samples: TODO
+        :type: no.array
 
         :return res: TODO
         """
@@ -275,7 +289,10 @@ class GFSK:
 
         :param L: TODO
 
+        :param sps: TODO
+
         :return res: TODO
+        :rtype:
         """
         alpha = np.sqrt(np.log(2)) / (self.get_bt() * sps)
         t = np.arange(-L, L + 1)
