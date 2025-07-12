@@ -42,6 +42,14 @@ class GMSK(GFSK):
 
     def set_modulation_index(self, modidx):
         """
+        Sets the modulation index.
+
+        :note: For GMSK, the modulation must always be 0.5.
+
+        :param modidx: The new modulation index (always 0.5).
+        :type: float
+
+        :return: None.
         """
         if modidx != 0.5:
             raise ValueError("The modulation index of GMSK must be always 0.5! If you change the modulation index it will not be GMSK anymore!")
