@@ -20,5 +20,4 @@
 # 
 #
 
-from pymodulation.pymodulation import PyModulation
 from pymodulation.version import __version__
