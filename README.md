@@ -1,9 +1,5 @@
-# PyModulation
 <h1 align="center">
     <a href="https://mgm8.github.io/pymodulation/"><img src="docs/img/logo.jpg" alt="PyModulation" width="50%"></a>
-    <br>
-    PYMODULATION
-    <br>
 </h1>
 
 <a href="https://pypi.org/project/pymodulation/">
