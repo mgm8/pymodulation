@@ -20,5 +20,3 @@
 # 
 #
 
-from pymodulation.gfsk import GFSK
-from pymodulation.gmsk import GMSK

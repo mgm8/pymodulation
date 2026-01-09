@@ -11,7 +11,7 @@ The GFSK modulation can be used through the *GFSK* class, using the modulate and
 
 .. code-block:: python
 
-    from pymodulation.gfsk import GFSK
+    from pymodulation import GFSK
 
     mod = GFSK(2.5, 0.5, 9600)  # Modulation index = 2.5, BT = 0.5, Baudrate = 9600 bps
 
@@ -34,7 +34,7 @@ This modulation can be used in a manner almost identical to GFSK modulation, wit
 
 .. code-block:: python
 
-    from pymodulation.gmsk import GMSK
+    from pymodulation import GMSK
 
     mod = GMSK(0.5, 9600)   # BT = 0.5, baudrate = 9600 bps
 
