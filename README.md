@@ -23,6 +23,10 @@ The main objective of PyModulation is to allow the direct use of supported modul
 
 PyModulation is suitable for a wide range of applications, including SDR-based transmitters and receivers, communication protocol prototyping, academic research, and teaching digital communications concepts. Its modular architecture makes it easy to extend with new modulation schemes and integrate with existing Python-based SDR and signal-processing toolchains.
 
+The following modulations are currently supported:
+
+* GFSK/GMSK
+
 ## Dependencies
 
 * NumPy
