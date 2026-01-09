@@ -1,0 +1,71 @@
+#
+#  install.yml
+#  
+#  Copyright The PyModulation Contributors.
+#  
+#  This file is part of PyModulation.
+#
+#  PyModulation is free software; you can redistribute it
+#  and/or modify it under the terms of the GNU General Public License as
+#  published by the Free Software Foundation, either version 3 of the
+#  License, or (at your option) any later version.
+#  
+#  PyModulation is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public
+#  License along with PyModulation; if not, see <http://www.gnu.org/licenses/>.
+#  
+#
+#
+
+name: Install test
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main, dev]
+
+  # 'workflow_dispatch' allows manual execution of this workflow under the repository's 'Actions' tab
+  workflow_dispatch:
+
+jobs:
+
+  install-test:
+    name: Installing test
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip and build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel build
+
+      - name: Build package (sdist and wheel)
+        run: |
+          python setup.py sdist bdist_wheel
+
+      - name: Check built distributions
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - name: Install package
+        run: |
+          python setup.py install
