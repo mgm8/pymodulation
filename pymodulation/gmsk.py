@@ -44,7 +44,7 @@ class GMSK(GFSK):
         """
         Sets the modulation index.
 
-        :note: For GMSK, the modulation must always be 0.5.
+        :note: For GMSK, the modulation index must always be 0.5.
 
         :param modidx: The new modulation index (always 0.5).
         :type: float

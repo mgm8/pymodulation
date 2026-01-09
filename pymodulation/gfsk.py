@@ -245,12 +245,16 @@ class GFSK:
         """
         Perform GFSK demodulation.
 
-        :param fs: TODO
+        :param fs: Sample rate in S/s
 
-        :param iq_samples: TODO
-        :type: no.array
+        :param iq_samples: IQ samples
+        :type: np.array
 
-        :return res: TODO
+        :return: The demodulated bitstream.
+        :rtype: list
+
+        :return: The baseband signal in NRZ format.
+        :rtype: list
         """
         sps = int(fs/self.get_baudrate())
 
@@ -273,9 +277,9 @@ class GFSK:
         """
         Extract frequency deviations using phase changes in IQ samples.
 
-        :param iq_samples: TODO
+        :param iq_samples: IQ samples.
 
-        :return res: TODO
+        :return: TODO
         """
         phase = np.angle(iq_samples)                    # Extract phase
         unwrapped_phase = np.unwrap(phase)              # Unwrap to avoid phase discontinuities
@@ -291,7 +295,7 @@ class GFSK:
 
         :param sps: TODO
 
-        :return res: TODO
+        :return: TODO
         :rtype:
         """
         alpha = np.sqrt(np.log(2)) / (self.get_bt() * sps)
