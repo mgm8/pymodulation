@@ -21,3 +21,4 @@ Contents
    overview
    modulations
    usage
+   installation
