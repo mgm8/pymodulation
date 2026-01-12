@@ -5,6 +5,9 @@
 <a href="https://pypi.org/project/pymodulation/">
     <img src="https://img.shields.io/pypi/v/pymodulation?style=for-the-badge">
 </a>
+<a href="https://doi.org/10.5281/zenodo.18202698">
+    <img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18202698-blue?style=for-the-badge">
+</a>
 <a href="https://pypi.org/project/pymodulation/">
     <img src="https://img.shields.io/pypi/pyversions/pymodulation?style=for-the-badge">
 </a>
@@ -53,6 +56,23 @@ Contributing instructions are also available [here](https://github.com/mgm8/pyng
 The documentation pages can be built with Sphinx by running the following command inside the ``docs`` folder:
 
 * ```make html```
+
+## Citing
+
+If you use PyModulation in your academic work or project, you can cite it:
+
+```
+@misc{marcelino2026,
+    author       = {Marcelino, Gabriel Mariano},
+    title        = {PyModulation},
+    month        = jan,
+    year         = 2026,
+    publisher    = {Zenodo},
+    version      = {v0.1},
+    doi          = {10.5281/zenodo.18202698},
+    url          = {https://doi.org/10.5281/zenodo.18202698},
+}
+```
 
 ## License
 
