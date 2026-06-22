@@ -1,5 +1,5 @@
 <h1 align="center">
-    <a href="https://mgm8.github.io/pymodulation/"><img src="docs/img/logo.jpg" alt="PyModulation" width="50%"></a>
+    <a href="https://pymodulation.github.io/pymodulation/"><img src="docs/img/logo.jpg" alt="PyModulation" width="50%"></a>
 </h1>
 
 <a href="https://pypi.org/project/pymodulation/">
@@ -11,11 +11,11 @@
 <a href="https://pypi.org/project/pymodulation/">
     <img src="https://img.shields.io/pypi/pyversions/pymodulation?style=for-the-badge">
 </a>
-<a href="https://github.com/mgm8/pymodulation/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/mgm8/pymodulation?style=for-the-badge">
+<a href="https://github.com/pymodulation/pymodulation/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/pymodulation/pymodulation?style=for-the-badge">
 </a>
-<a href="https://github.com/mgm8/pymodulation/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/mgm8/pymodulation/test.yml?style=for-the-badge">
+<a href="https://github.com/pymodulation/pymodulation/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/pymodulation/pymodulation/test.yml?style=for-the-badge">
 </a>
 
 ## Overview
@@ -43,9 +43,9 @@ This library can be installed directly from the source files:
 
 ## Documentation
 
-The documentation page is available [here](https://mgm8.github.io/pymodulation/). Instructions to build the documentation page are described below.
+The documentation page is available [here](https://pymodulation.github.io/pymodulation/). Instructions to build the documentation page are described below.
 
-Contributing instructions are also available [here](https://github.com/mgm8/pyngham/blob/main/CONTRIBUTING.md).
+Contributing instructions are also available [here](https://github.com/pymodulation/pyngham/blob/main/CONTRIBUTING.md).
 
 ### Dependencies
 
