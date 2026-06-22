@@ -107,7 +107,7 @@ def test_gaussian_lpf(gmsk_modulator):
     Tb = 1/9600
     L = 100
     k = 1
-    h_norm = gmsk_modulator._gaussian_lpf(Tb, L, k)
+    h_norm = gmsk_modulator.gaussian_lpf(Tb, L, k)
 
     assert isinstance(h_norm, np.ndarray)
     assert len(h_norm) > 0
@@ -152,12 +152,13 @@ def test_frequency_discriminator(gmsk_modulator):
 
 def test_gaussian_filter(gmsk_modulator):
     """Test Gaussian filter generation"""
-    L = 10
+    k = 10
     sps = 100
-    g = gmsk_modulator._gaussian_filter(L, sps)
+    g = gmsk_modulator.gaussian_pulse(1 / gmsk_modulator.get_baudrate(), sps, k)
 
+    print(len(g))
     assert isinstance(g, np.ndarray)
-    assert len(g) == 2 * L + 1
+    assert len(g) == (2 * k + 1) * sps + 1
     assert np.isclose(np.sum(g), 1.0, rtol=1e-5)  # Should be normalized
 
 def test_modulator_demodulator(gmsk_modulator, test_data):
