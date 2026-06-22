@@ -285,11 +285,14 @@ class GFSK:
         """
         sps = int(fs / self.get_baudrate())
 
+        # Applies the gain of quadrature demod following the equation: gain = fs / (2π * deviation), where deviation is: h * baudrate / 2
+        gain = fs / (np.pi * self.get_modulation_index() * self.get_baudrate())
+
         # Frequency discriminator
-        freq_deviation = self._frequency_discriminator(iq_samples)
+        freq_deviation = gain * self._frequency_discriminator(iq_samples)
 
         # Apply Gaussian matched filter
-        gaussian_filter = self.gaussian_pulse(1 / self.get_baudrate(), sps, 3 * sps)
+        gaussian_filter = self.gaussian_pulse(1 / self.get_baudrate(), sps, 1)
         filtered_signal = np.convolve(freq_deviation, gaussian_filter, mode="same")
 
         # Downsample to symbol rate
@@ -308,8 +311,33 @@ class GFSK:
 
         :return: TODO
         """
-        phase = np.angle(iq_samples)  # Extract phase
-        unwrapped_phase = np.unwrap(phase)  # Unwrap to avoid phase discontinuities
-        freq_deviation = np.diff(unwrapped_phase)  # Phase derivative
+        freq_deviation = np.angle(iq_samples[1:] * np.conj(iq_samples[:-1]))
 
         return np.concatenate([[0], freq_deviation])  # Keep length consistent
+
+    def quadrature_demod_soft(self, samples, fs):
+        """
+        Non-coherent demodulation based on frequency discrimination.
+
+        :param fs: sample rate in Hz
+        :param samples: signal IQ samples
+
+        :return: Soft symbols at the same rate of the input samples (meaning that sps remains the same, useful for time synchronization loop later).
+        """
+        iq_samples = np.asarray(samples, dtype=np.complex64)
+
+        sps = int(fs / self._baudrate)
+
+        # Applies the gain of quadrature demod following the equation: gain = fs / (2π * deviation), where deviation is: h * baudrate / 2
+        gain = fs / (np.pi * self.get_modulation_index() * self.get_baudrate())
+
+        freq_deviation = gain * self._frequency_discriminator(iq_samples)
+
+        # Removing DC (mean) from deviation is equivalent to removing residual Carrier Frequency Offset (CFO)
+        freq_deviation -= np.mean(freq_deviation)
+
+        # Apply matched filter
+        g = self.gaussian_pulse(1 / self._baudrate, sps, 1)
+        soft_symbols = np.convolve(freq_deviation, g, "same")
+
+        return soft_symbols
