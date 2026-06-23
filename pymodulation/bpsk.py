@@ -27,8 +27,7 @@ _BPSK_DEFAULT_OVERSAMPLING_FACTOR = 100
 
 class BPSK:
     """
-    Simple BPSK modulator and demodulator.
-
+    BPSK modulator and demodulator.
     - Modulation: bits {0,1} -> symbols {-1,+1}
     - Demodulation: decision based on real part of IQ samples
     """
@@ -46,15 +45,25 @@ class BPSK:
 
     def set_baudrate(self, baud):
         """
+        Sets the baudrate.
+
+        :param baud: The new baudrate value in bps.
+        :type: int
+
+        :return: None
         """
         self._baudrate = baud
 
     def get_baudrate(self):
         """
+        Gets the baudrate.
+
+        :return: The current baudrate in bps.
+        :rtype: int
         """
         return self._baudrate
 
-    def modulate(self, data: list, L=_BPSK_DEFAULT_OVERSAMPLING_FACTOR) -> np.ndarray:
+    def modulate(self, data: list, L=_BPSK_DEFAULT_OVERSAMPLING_FACTOR):
         """
         Modulate data into BPSK IQ samples (baseband).
 
@@ -64,19 +73,17 @@ class BPSK:
         :param L: Oversampling factor (Tb/Ts)
         :type: int
 
-        :return: IQ samples
-        :rtype: np.ndarray
+        :return: Tuple of (IQ samples, sample rate in Hz, transmission duration in seconds)
+        :rtype: tuple(np.ndarray, float, float)
         """
         s_bb, t = self.modulate_time_domain(data, L)
-
         samples = s_bb.astype(np.complex64) # BPSK is purely real at baseband
 
-        # Timing parameters
-        fc = self.get_baudrate()    # Carrier frequency = Data transfer rate in bps
-        fs = L*fc                   # Sample frequency in Hz
-        Ts = 1.0/fs                 # Sample period in seconds
-        Tb = L*Ts                   # Bit period in seconds
-        dur = len(data)*Tb          # Transmission duration in seconds
+        f_sym = self.get_baudrate()         # Symbol rate in baud
+        fs = L * f_sym                      # Sample rate in Hz
+
+        n_bits = len(data) * 8
+        dur = n_bits / f_sym                # Transmission duration in seconds
 
         return samples, fs, dur
 
@@ -90,25 +97,30 @@ class BPSK:
         :param L: Oversampling factor (Tb/Ts)
         :type: int
 
-        :return: Baseband signal in time domain.
+        :return: Baseband signal in time domain (length N*L).
         :rtype: np.ndarray
 
-        :return: Time base
+        :return: Discrete time base (length N*L).
         :rtype: np.ndarray
         """
         # Convert to array of bits
         bits = np.array(self._int_list_to_bit_list(data))
+        n_bits = len(bits)
 
-        s_bb = upfirdn(h=[1]*L, x=2*bits-1, up=L)   # NRZ encoder
-        t = np.arange(start=0, stop=len(bits)*L)    # Discrete time base
+        # NRZ encoder: upfirdn with h=[1]*L produces output of length N*L + L-1
+        s_bb_full = upfirdn(h=[1] * L, x=2 * bits - 1, up=L)
+
+        s_bb = s_bb_full[:n_bits * L]
+
+        t = np.arange(start=0, stop=n_bits * L)  # Discrete time base
 
         return s_bb, t
 
-    def demodulate(self, samples: np.ndarray, L=_BPSK_DEFAULT_OVERSAMPLING_FACTOR) -> np.ndarray:
+    def demodulate(self, samples: np.ndarray, L=_BPSK_DEFAULT_OVERSAMPLING_FACTOR) -> list:
         """
         Demodulate BPSK IQ samples into bits.
 
-        :param iq: IQ samples.
+        :param samples: IQ samples.
         :type: np.ndarray
 
         :param L: Oversampling factor (Tb/Ts)
@@ -119,14 +131,16 @@ class BPSK:
         """
         x = np.real(samples)            # I arm
         x = np.convolve(x, np.ones(L))  # Integrate for Tb duration (L samples)
-        x = x[L-1:-1:L]                 # I arm - sample at every L
+
+        x = x[L - 1::L]                 # Sample at the end of each integration window
+
         bits = (x > 0).transpose()      # Threshold detector
 
         return list(map(int, bits))
 
     def _int_list_to_bit_list(self, n):
         """
-        Converts a integer list (bytes) to a bit list.
+        Converts an integer list (bytes) to a bit list.
 
         :param n: An integer list.
         :type: list
@@ -135,8 +149,7 @@ class BPSK:
         :rtype: list
         """
         res = list()
-
         for i in n:
-            res = res + [int(digit) for digit in bin(i)[2:].zfill(8)]
+            res += [int(digit) for digit in bin(i)[2:].zfill(8)]
 
         return res
