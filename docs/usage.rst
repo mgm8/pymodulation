@@ -31,7 +31,7 @@ The BPSK modulation can be used through the *BPSK* class, using the modulate and
 
     print("IQ Samples:", samples[:10])
 
-    bits = mod.demodulate(samples)
+    bits = mod.demodulate(samples, fs)
 
     print("Demodulated bits:", list(map(int, bits)))
 
