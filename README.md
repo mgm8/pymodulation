@@ -29,11 +29,12 @@ PyModulation is suitable for a wide range of applications, including SDR-based t
 The following modulations are currently supported:
 
 * GFSK/GMSK
+* BPSK
 
 ## Dependencies
 
-* NumPy
-* SciPy
+* [NumPy](https://numpy.org/)
+* [SciPy](https://scipy.org/)
 
 ## Installing
 
