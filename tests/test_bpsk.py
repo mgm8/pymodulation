@@ -155,42 +155,42 @@ class TestModulate:
 # 5. demodulate
 class TestDemodulate:
     def test_output_is_list(self, bpsk):
-        samples, _, _ = bpsk.modulate([0xAB], L)
-        bits = bpsk.demodulate(samples, L)
+        samples, fs, _ = bpsk.modulate([0xAB], L)
+        bits = bpsk.demodulate(samples, fs)
         assert isinstance(bits, list)
 
     def test_output_contains_only_bits(self, bpsk):
-        samples, _, _ = bpsk.modulate([0xA5], L)
-        bits = bpsk.demodulate(samples, L)
+        samples, fs, _ = bpsk.modulate([0xA5], L)
+        bits = bpsk.demodulate(samples, fs)
         assert all(b in (0, 1) for b in bits)
 
     def test_demodulate_zero_byte(self, bpsk):
-        samples, _, _ = bpsk.modulate([0x00], L)
-        bits = bpsk.demodulate(samples, L)
+        samples, fs, _ = bpsk.modulate([0x00], L)
+        bits = bpsk.demodulate(samples, fs)
         assert bits == [0] * 8
 
     def test_demodulate_full_byte(self, bpsk):
-        samples, _, _ = bpsk.modulate([0xFF], L)
-        bits = bpsk.demodulate(samples, L)
+        samples, fs, _ = bpsk.modulate([0xFF], L)
+        bits = bpsk.demodulate(samples, fs)
         assert bits == [1] * 8
 
     def test_demodulate_known_byte(self, bpsk):
         # 0xA5 = 1010 0101
-        samples, _, _ = bpsk.modulate([0xA5], L)
-        bits = bpsk.demodulate(samples, L)
+        samples, fs, _ = bpsk.modulate([0xA5], L)
+        bits = bpsk.demodulate(samples, fs)
         assert bits == [1, 0, 1, 0, 0, 1, 0, 1]
 
     def test_output_bit_count_equals_input_bit_count(self, bpsk):
         data = [0xDE, 0xAD, 0xBE, 0xEF]
-        samples, _, _ = bpsk.modulate(data, L)
-        bits = bpsk.demodulate(samples, L)
+        samples, fs, _ = bpsk.modulate(data, L)
+        bits = bpsk.demodulate(samples, fs)
         assert len(bits) == len(data) * 8
 
     def test_accepts_imaginary_input(self, bpsk):
         """demodulate should ignore the imaginary part and work correctly."""
-        samples, _, _ = bpsk.modulate([0xA5], L)
+        samples, fs, _ = bpsk.modulate([0xA5], L)
         noisy = samples + 1j * np.ones_like(samples)  # add imaginary noise
-        bits = bpsk.demodulate(noisy, L)
+        bits = bpsk.demodulate(noisy, fs)
         assert bits == [1, 0, 1, 0, 0, 1, 0, 1]
 
 # 6. Full round-trip: modulate -> demodulate
@@ -207,8 +207,8 @@ class TestRoundTrip:
     def test_roundtrip_noiseless(self, bpsk, data):
         """Modulating then demodulating must recover the original bits exactly."""
         original_bits = bpsk._int_list_to_bit_list(data)
-        samples, _, _ = bpsk.modulate(data, L)
-        recovered_bits = bpsk.demodulate(samples, L)
+        samples, fs, _ = bpsk.modulate(data, L)
+        recovered_bits = bpsk.demodulate(samples, fs)
         assert recovered_bits == original_bits
 
     def test_roundtrip_with_small_awgn(self, bpsk):
@@ -219,9 +219,9 @@ class TestRoundTrip:
         rng = np.random.default_rng(seed=42)
         data = list(range(16))  # 16 bytes = 128 bits
         original_bits = bpsk._int_list_to_bit_list(data)
-        samples, _, _ = bpsk.modulate(data, L)
+        samples, fs, _ = bpsk.modulate(data, L)
         noise = rng.normal(0, 0.05, size=len(samples)).astype(np.float32)
-        recovered_bits = bpsk.demodulate(samples + noise, L)
+        recovered_bits = bpsk.demodulate(samples + noise, fs)
         assert recovered_bits == original_bits
 
     def test_roundtrip_different_baudrates(self):
@@ -230,6 +230,6 @@ class TestRoundTrip:
         for baud in [100, 1000, 9600, 115200]:
             modem = BPSK(baud=baud)
             original_bits = modem._int_list_to_bit_list(data)
-            samples, _, _ = modem.modulate(data, L)
-            recovered_bits = modem.demodulate(samples, L)
+            samples, fs, _ = modem.modulate(data, L)
+            recovered_bits = modem.demodulate(samples, fs)
             assert recovered_bits == original_bits, f"Failed at baudrate={baud}"

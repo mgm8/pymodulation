@@ -116,19 +116,20 @@ class BPSK:
 
         return s_bb, t
 
-    def demodulate(self, samples: np.ndarray, L=_BPSK_DEFAULT_OVERSAMPLING_FACTOR) -> list:
+    def demodulate(self, samples: np.ndarray, fs) -> list:
         """
         Demodulate BPSK IQ samples into bits.
 
         :param samples: IQ samples.
         :type: np.ndarray
 
-        :param L: Oversampling factor (Tb/Ts)
+        :param fs: Sample rate in S/s
         :type: int
 
         :return: Demodulated bits (0 or 1).
         :rtype: list
         """
+        L = int(fs/self.get_baudrate()) # Oversampling factor (Samples/bit)
         x = np.real(samples)            # I arm
         x = np.convolve(x, np.ones(L))  # Integrate for Tb duration (L samples)
 
