@@ -23,45 +23,14 @@
 import numpy as np
 from scipy.signal import upfirdn
 
+from pymodulation.modulation import Modulation
+
 _BPSK_DEFAULT_OVERSAMPLING_FACTOR = 100
 
-class BPSK:
+class BPSK(Modulation):
     """
-    BPSK modulator and demodulator.
-    - Modulation: bits {0,1} -> symbols {-1,+1}
-    - Demodulation: decision based on real part of IQ samples
+    BPSK modulator/demodulator.
     """
-
-    def __init__(self, baud):
-        """
-        Class constructor.
-
-        :param baud: Baudrate in bps.
-        :type: int
-
-        :return: None
-        """
-        self._baudrate = baud
-
-    def set_baudrate(self, baud):
-        """
-        Sets the baudrate.
-
-        :param baud: The new baudrate value in bps.
-        :type: int
-
-        :return: None
-        """
-        self._baudrate = baud
-
-    def get_baudrate(self):
-        """
-        Gets the baudrate.
-
-        :return: The current baudrate in bps.
-        :rtype: int
-        """
-        return self._baudrate
 
     def modulate(self, data: list, L=_BPSK_DEFAULT_OVERSAMPLING_FACTOR):
         """
@@ -138,19 +107,3 @@ class BPSK:
         bits = (x > 0).transpose()      # Threshold detector
 
         return list(map(int, bits))
-
-    def _int_list_to_bit_list(self, n):
-        """
-        Converts an integer list (bytes) to a bit list.
-
-        :param n: An integer list.
-        :type: list
-
-        :return res: The given integer list as a bit list
-        :rtype: list
-        """
-        res = list()
-        for i in n:
-            res += [int(digit) for digit in bin(i)[2:].zfill(8)]
-
-        return res

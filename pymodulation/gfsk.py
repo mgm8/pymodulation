@@ -23,11 +23,13 @@
 import numpy as np
 from scipy.signal import upfirdn, lfilter
 
+from pymodulation.modulation import Modulation
+
 _GFSK_DEFAULT_OVERSAMPLING_FACTOR = 100
 
-class GFSK:
+class GFSK(Modulation):
     """
-    GFSK modulator.
+    GFSK modulator/demodulator.
     """
 
     def __init__(self, modidx, bt, baud):
@@ -45,13 +47,13 @@ class GFSK:
 
         :return None
         """
+        super().__init__(baud)
+
         self._mod_index = float()
         self._bt        = float()
-        self._baudrate  = int()
 
         self.set_modulation_index(modidx)
         self.set_bt(bt)
-        self.set_baudrate(baud)
 
     def set_modulation_index(self, modidx):
         """
@@ -92,26 +94,6 @@ class GFSK:
         :rtype: float
         """
         return self._bt
-
-    def set_baudrate(self, baud):
-        """
-        Sets the baudrate.
-
-        :param baud: The new baudrate in bps.
-        :type: int
-
-        :return: None.
-        """
-        self._baudrate = baud
-
-    def get_baudrate(self):
-        """
-        Gets the current baudrate.
-
-        :return: The configured baudrate in bps.
-        :rtype: int
-        """
-        return self._baudrate
 
     def modulate(self, data, sps=_GFSK_DEFAULT_OVERSAMPLING_FACTOR):
         """
@@ -265,23 +247,6 @@ class GFSK:
         g = np.convolve(h, nrz, mode="full")
 
         return g / np.sum(g)
-
-    def _int_list_to_bit_list(self, n):
-        """
-        Converts a integer list (bytes) to a bit list.
-
-        :param n: An integer list.
-        :type: list
-
-        :return res: The given integer list as a bit list
-        :rtype: list
-        """
-        res = list()
-
-        for i in n:
-            res = res + [int(digit) for digit in bin(i)[2:].zfill(8)]
-
-        return res
 
     def demodulate(self, iq_samples, fs):
         """
