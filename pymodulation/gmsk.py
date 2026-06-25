@@ -24,16 +24,17 @@ from pymodulation.gfsk import GFSK
 
 class GMSK(GFSK):
     """
-    GMSK modulator.
+    GMSK modulator/demodulator.
     """
+
     def __init__(self, bt, baud):
         """
         Class constructor with modulation initialization.
 
-        :param bt: BT product (bandwidth x bit period) for GMSK
+        :param bt: BT product (bandwidth x bit period) for GMSK.
         :type: float
 
-        :param baud: The desired data rate in bps
+        :param baud: The desired data rate in bps.
         :type: int
 
         :return: None.

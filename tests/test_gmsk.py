@@ -107,7 +107,7 @@ def test_gaussian_lpf(gmsk_modulator):
     Tb = 1/9600
     L = 100
     k = 1
-    h_norm = gmsk_modulator._gaussian_lpf(Tb, L, k)
+    h_norm = gmsk_modulator.gaussian_lpf(Tb, L, k)
 
     assert isinstance(h_norm, np.ndarray)
     assert len(h_norm) > 0
@@ -127,7 +127,7 @@ def test_demodulation(gmsk_modulator, test_data):
     s_complex, fs, _ = gmsk_modulator.modulate(test_data)
 
     # Demodulate
-    demod_bits, sampled_signal = gmsk_modulator.demodulate(fs, s_complex)
+    demod_bits, sampled_signal = gmsk_modulator.demodulate(s_complex, fs)
 
     # Convert original data to bits for comparison
     original_bits = gmsk_modulator._int_list_to_bit_list(test_data)
@@ -152,19 +152,20 @@ def test_frequency_discriminator(gmsk_modulator):
 
 def test_gaussian_filter(gmsk_modulator):
     """Test Gaussian filter generation"""
-    L = 10
+    k = 10
     sps = 100
-    g = gmsk_modulator._gaussian_filter(L, sps)
+    g = gmsk_modulator.gaussian_pulse(1 / gmsk_modulator.get_baudrate(), sps, k)
 
+    print(len(g))
     assert isinstance(g, np.ndarray)
-    assert len(g) == 2 * L + 1
+    assert len(g) == (2 * k + 1) * sps + 1
     assert np.isclose(np.sum(g), 1.0, rtol=1e-5)  # Should be normalized
 
 def test_modulator_demodulator(gmsk_modulator, test_data):
     """Test modulation and demoulation"""
     samples, fs, dur = gmsk_modulator.modulate(test_data)
 
-    demod_bits, signal = gmsk_modulator.demodulate(fs, samples)
+    demod_bits, signal = gmsk_modulator.demodulate(samples, fs)
 
     data_res = list()
 

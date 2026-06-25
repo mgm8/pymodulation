@@ -1,5 +1,5 @@
 #
-# sphinx-build.py
+# doc_build.py
 # 
 # Copyright The PyModulation Contributors.
 # 
@@ -20,7 +20,7 @@
 # 
 #
 
-name: Documentation build test
+name: Documentation Build
 
 on:
   push:
@@ -33,18 +33,20 @@ on:
 
 jobs:
   build-doc:
-    name: Documentation building
+    name: Build documentation HTML page 
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build pages
-        uses: Kjuly/sphinx-builder@main
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: ammaraskar/sphinx-action@master
         with:
-          source_root: "docs/"
-      - name: Create artifact
-        uses: actions/upload-artifact@v4
+          docs-folder: "docs"
+          pre-build-command: "pip install -r docs/requirements.txt --upgrade pip"
+
+      # Create an artifact of the HTML output
+      - uses: actions/upload-artifact@v7
         with:
-          name: Documentation HTML
+          name: documentation_html
           path: docs/_build/html/

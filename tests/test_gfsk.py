@@ -1,23 +1,23 @@
 #
 # test_gfsk.py
-# 
+#
 # Copyright The PyModulation Contributors.
-# 
+#
 # This file is part of PyModulation library.
-# 
+#
 # PyModulation library is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # PyModulation library is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU Lesser General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU Lesser General Public License
 # along with PyModulation library. If not, see <http://www.gnu.org/licenses/>.
-# 
+#
 #
 
 import random
@@ -32,16 +32,19 @@ MODULATION_INDICES = [0.3, 0.5, 1.0]
 BT_PRODUCTS = [0.3, 0.5, 1.0]
 BAUD_RATES = [1200, 9600, 19200]
 
+
 # Test fixtures
 @pytest.fixture
 def gfsk_modulator():
     """Fixture providing a default GFSK modulator instance"""
     return GFSK(modidx=0.5, bt=0.3, baud=9600)
 
+
 @pytest.fixture
 def test_data():
     """Fixture providing test data (simple byte sequence)"""
     return [random.randint(0, 255) for _ in range(1000)]
+
 
 def test_initialization(gfsk_modulator):
     """Test that initialization sets the correct parameters"""
@@ -49,11 +52,13 @@ def test_initialization(gfsk_modulator):
     assert gfsk_modulator.get_bt() == 0.3
     assert gfsk_modulator.get_baudrate() == 9600
 
+
 @pytest.mark.parametrize("modidx", MODULATION_INDICES)
 def test_modulation_index_setter(gfsk_modulator, modidx):
     """Test modulation index setter/getter"""
     gfsk_modulator.set_modulation_index(modidx)
     assert gfsk_modulator.get_modulation_index() == modidx
+
 
 @pytest.mark.parametrize("bt", BT_PRODUCTS)
 def test_bt_setter(gfsk_modulator, bt):
@@ -61,11 +66,13 @@ def test_bt_setter(gfsk_modulator, bt):
     gfsk_modulator.set_bt(bt)
     assert gfsk_modulator.get_bt() == bt
 
+
 @pytest.mark.parametrize("baud", BAUD_RATES)
 def test_baudrate_setter(gfsk_modulator, baud):
     """Test baudrate setter/getter"""
     gfsk_modulator.set_baudrate(baud)
     assert gfsk_modulator.get_baudrate() == baud
+
 
 def test_modulate_output_shapes(gfsk_modulator, test_data):
     """Test that modulate returns outputs with correct shapes/types"""
@@ -75,6 +82,7 @@ def test_modulate_output_shapes(gfsk_modulator, test_data):
     assert isinstance(fs, (int, float))
     assert isinstance(dur, float)
     assert len(s_complex) > 0
+
 
 def test_modulate_time_domain_output(gfsk_modulator, test_data):
     """Test time domain modulation output"""
@@ -86,6 +94,7 @@ def test_modulate_time_domain_output(gfsk_modulator, test_data):
     assert isinstance(dur, float)
     assert len(s_t) == len(t)
 
+
 def test_get_iq_output(gfsk_modulator, test_data):
     """Test IQ generation output"""
     I, Q, fs, dur = gfsk_modulator.get_iq(test_data)
@@ -96,16 +105,18 @@ def test_get_iq_output(gfsk_modulator, test_data):
     assert isinstance(dur, float)
     assert len(I) == len(Q)
 
+
 def test_gaussian_lpf(gfsk_modulator):
     """Test Gaussian LPF coefficient generation"""
-    Tb = 1/9600
+    Tb = 1 / 9600
     L = 100
     k = 1
-    h_norm = gfsk_modulator._gaussian_lpf(Tb, L, k)
+    h_norm = gfsk_modulator.gaussian_lpf(Tb, L, k)
 
     assert isinstance(h_norm, np.ndarray)
     assert len(h_norm) > 0
     assert np.isclose(np.sum(h_norm), 1.0, rtol=1e-5)  # Should be normalized
+
 
 def test_int_to_bit_conversion(gfsk_modulator):
     """Test integer to bit list conversion"""
@@ -115,13 +126,14 @@ def test_int_to_bit_conversion(gfsk_modulator):
     result = gfsk_modulator._int_list_to_bit_list(input_data)
     assert result == expected_output
 
+
 def test_demodulation(gfsk_modulator, test_data):
     """Test demodulation round-trip"""
     # Modulate the test data
     s_complex, fs, _ = gfsk_modulator.modulate(test_data)
 
     # Demodulate
-    demod_bits, sampled_signal = gfsk_modulator.demodulate(fs, s_complex)
+    demod_bits, sampled_signal = gfsk_modulator.demodulate(s_complex, fs)
 
     # Convert original data to bits for comparison
     original_bits = gfsk_modulator._int_list_to_bit_list(test_data)
@@ -130,7 +142,8 @@ def test_demodulation(gfsk_modulator, test_data):
     assert len(demod_bits) > 0
     assert isinstance(demod_bits, list)
     assert isinstance(sampled_signal, np.ndarray)
-    assert len(demod_bits)-2 <= len(original_bits)  # May lose some bits at edges
+    assert len(demod_bits) - 2 <= len(original_bits)  # May lose some bits at edges
+
 
 def test_frequency_discriminator(gfsk_modulator):
     """Test frequency discriminator"""
@@ -144,21 +157,23 @@ def test_frequency_discriminator(gfsk_modulator):
     assert isinstance(result, np.ndarray)
     assert len(result) == len(iq_samples)
 
+
 def test_gaussian_filter(gfsk_modulator):
     """Test Gaussian filter generation"""
-    L = 10
+    k = 10
     sps = 100
-    g = gfsk_modulator._gaussian_filter(L, sps)
+    g = gfsk_modulator.gaussian_pulse(1 / gfsk_modulator.get_baudrate(), sps, k)
 
     assert isinstance(g, np.ndarray)
-    assert len(g) == 2 * L + 1
+    assert len(g) == (2 * k + 1) * sps + 1
     assert np.isclose(np.sum(g), 1.0, rtol=1e-5)  # Should be normalized
+
 
 def test_modulator_demodulator(gfsk_modulator, test_data):
     """Test modulation and demoulation"""
     samples, fs, dur = gfsk_modulator.modulate(test_data)
 
-    demod_bits, signal = gfsk_modulator.demodulate(fs, samples)
+    demod_bits, signal = gfsk_modulator.demodulate(samples, fs)
 
     data_res = list()
 

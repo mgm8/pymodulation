@@ -20,4 +20,4 @@ References
 ==========
 
 .. [1] https://pypi.org/project/pymodulation/
-.. [2] https://github.com/mgm8/pymodulation
+.. [2] https://github.com/pymodulation/pymodulation

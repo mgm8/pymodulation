@@ -37,7 +37,7 @@ setuptools.setup(
     author_email                    = "gabriel.mm8@gmail.com",
     maintainer                      = "Gabriel Mariano Marcelino",
     maintainer_email                = "gabriel.mm8@gmail.com",
-    url                             = "https://github.com/mgm8/pymodulation",
+    url                             = "https://github.com/pymodulation/pymodulation",
     license                         = "LGPLv3",
     description                     = "PyModulation library",
     long_description                = long_description,
@@ -60,7 +60,7 @@ setuptools.setup(
         "Topic :: Software Development :: Libraries",
         "Topic :: Software Development :: Libraries :: Python Modules"
         ],
-    download_url                    = "https://github.com/mgm8/pymodulation/releases",
+    download_url                    = "https://github.com/pymodulation/pymodulation/releases",
     packages                        = setuptools.find_packages(),
     install_requires                = ['numpy', 'scipy'],
 )
