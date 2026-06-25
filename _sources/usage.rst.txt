@@ -1,8 +1,41 @@
+.. usage.rst
+
+   Copyright The PyModulation Contributors.
+
+   PyModulation Documentation
+
+   This work is licensed under the Creative Commons Attribution-ShareAlike 4.0
+   International License. To view a copy of this license,
+   visit http://creativecommons.org/licenses/by-sa/4.0/.
+
 *****
 Usage
 *****
 
 This section presents examples of how to use the library for each supported modulation type.
+
+BPSK
+====
+
+The BPSK modulation can be used through the *BPSK* class, using the modulate and demodulate methods. An example of usage can be seen in the code below:
+
+.. code-block:: python
+
+    from pymodulation import BPSK
+
+    mod = BPSK(9600)    # Baudrate = 9600 bps
+
+    data = list(range(100))
+
+    samples, fs, dur = mod.modulate(data)
+
+    print("IQ Samples:", samples[:10])
+
+    bits = mod.demodulate(samples, fs)
+
+    print("Demodulated bits:", list(map(int, bits)))
+
+The *modulate* method returns the IQ samples of the generated signal, the corresponding sampling rate, and the signal duration in seconds. The *demodulate* method allows the demodulation of a BPSK signal, taking the corresponding IQ samples as input, and producing as output the data bitstream contained in the signal and the baseband signal samples (in NRZ format).
 
 GFSK
 ====

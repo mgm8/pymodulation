@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Usage &mdash; PyModulation v0.1 documentation</title>
+  <title>Usage &mdash; PyModulation v0.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=4c0d86c8"></script>
+      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=7bf50ca2"></script>
       <script src="_static/doctools.js?v=888ff710"></script>
       <script src="_static/sphinx_highlight.js?v=4825356b"></script>
     <script src="_static/js/theme.js"></script>
@@ -46,6 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modulations.html">Modulations</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#bpsk">BPSK</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gfsk">GFSK</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gmsk">GMSK</a></li>
 </ul>
@@ -80,6 +81,26 @@
   <section id="usage">
 <h1>Usage<a class="headerlink" href="#usage" title="Permalink to this heading"></a></h1>
 <p>This section presents examples of how to use the library for each supported modulation type.</p>
+<section id="bpsk">
+<h2>BPSK<a class="headerlink" href="#bpsk" title="Permalink to this heading"></a></h2>
+<p>The BPSK modulation can be used through the <em>BPSK</em> class, using the modulate and demodulate methods. An example of usage can be seen in the code below:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pymodulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">BPSK</span>
+
+<span class="n">mod</span> <span class="o">=</span> <span class="n">BPSK</span><span class="p">(</span><span class="mi">9600</span><span class="p">)</span>    <span class="c1"># Baudrate = 9600 bps</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">))</span>
+
+<span class="n">samples</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">dur</span> <span class="o">=</span> <span class="n">mod</span><span class="o">.</span><span class="n">modulate</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;IQ Samples:&quot;</span><span class="p">,</span> <span class="n">samples</span><span class="p">[:</span><span class="mi">10</span><span class="p">])</span>
+
+<span class="n">bits</span> <span class="o">=</span> <span class="n">mod</span><span class="o">.</span><span class="n">demodulate</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Demodulated bits:&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">bits</span><span class="p">)))</span>
+</pre></div>
+</div>
+<p>The <em>modulate</em> method returns the IQ samples of the generated signal, the corresponding sampling rate, and the signal duration in seconds. The <em>demodulate</em> method allows the demodulation of a BPSK signal, taking the corresponding IQ samples as input, and producing as output the data bitstream contained in the signal and the baseband signal samples (in NRZ format).</p>
+</section>
 <section id="gfsk">
 <h2>GFSK<a class="headerlink" href="#gfsk" title="Permalink to this heading"></a></h2>
 <p>The GFSK modulation can be used through the <em>GFSK</em> class, using the modulate and demodulate methods. An example of usage can be seen in the code below:</p>

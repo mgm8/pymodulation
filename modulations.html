@@ -6,16 +6,17 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Modulations &mdash; PyModulation v0.1 documentation</title>
+  <title>Modulations &mdash; PyModulation v0.2 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=4c0d86c8"></script>
+      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=7bf50ca2"></script>
       <script src="_static/doctools.js?v=888ff710"></script>
       <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -45,6 +46,7 @@
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Modulations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#bpsk">BPSK</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gfsk">GFSK</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gmsk">GMSK</a></li>
 </ul>
@@ -79,6 +81,21 @@
              
   <section id="modulations">
 <h1>Modulations<a class="headerlink" href="#modulations" title="Permalink to this heading"></a></h1>
+<section id="bpsk">
+<h2>BPSK<a class="headerlink" href="#bpsk" title="Permalink to this heading"></a></h2>
+<p>Binary Phase Shift Keying (BPSK) is one of the simplest and most robust digital modulation schemes used in wireless and satellite communications. In BPSK, digital information is transmitted by changing the phase of a carrier signal between two possible states separated by 180 degrees. Typically, a binary <cite>0</cite> is represented by a carrier phase of 0°, while a binary <cite>1</cite> is represented by a phase of 180°.</p>
+<p>The BPSK signal can be expressed as:</p>
+<div class="math notranslate nohighlight">
+\[s(t) = A \cos(2\pi f_c t + \phi)\]</div>
+<p>where:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(A\)</span> is the signal amplitude;</p></li>
+<li><p><span class="math notranslate nohighlight">\(f_c\)</span> is the carrier frequency;</p></li>
+<li><p><span class="math notranslate nohighlight">\(\phi\)</span> is the carrier phase, taking values of 0 or <span class="math notranslate nohighlight">\(\pi\)</span> radians according to the transmitted bit.</p></li>
+</ul>
+<p>BPSK offers excellent noise immunity and achieves a low bit error rate (BER) for a given signal-to-noise ratio (SNR). Its simplicity allows for straightforward implementation in both transmitters and receivers. However, since each symbol conveys only one bit of information, BPSK has lower spectral efficiency than higher-order modulation schemes such as QPSK and QAM.</p>
+<p>Due to its robustness and implementation simplicity, BPSK is widely employed in satellite telemetry and telecommand links, deep-space communications, navigation systems, and other applications requiring reliable data transmission under challenging channel conditions.</p>
+</section>
 <section id="gfsk">
 <h2>GFSK<a class="headerlink" href="#gfsk" title="Permalink to this heading"></a></h2>
 <p>Gaussian Frequency Shift Keying (GFSK) is a modulation technique derived from Frequency Shift Keying (FSK), where digital data is transmitted by shifting the carrier frequency between discrete values. Unlike traditional FSK, GFSK applies a Gaussian filter to the baseband pulses before modulation, which smooths the phase transitions and reduces spectral bandwidth. This filtering minimizes abrupt frequency changes, resulting in a more compact power spectrum and reduced interference with adjacent channels. GFSK is particularly advantageous in wireless communication systems where efficient bandwidth utilization and low power consumption are critical.</p>
