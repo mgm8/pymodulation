@@ -127,7 +127,7 @@ def test_demodulation(gmsk_modulator, test_data):
     s_complex, fs, _ = gmsk_modulator.modulate(test_data)
 
     # Demodulate
-    demod_bits, sampled_signal = gmsk_modulator.demodulate(fs, s_complex)
+    demod_bits, sampled_signal = gmsk_modulator.demodulate(s_complex, fs)
 
     # Convert original data to bits for comparison
     original_bits = gmsk_modulator._int_list_to_bit_list(test_data)
@@ -165,7 +165,7 @@ def test_modulator_demodulator(gmsk_modulator, test_data):
     """Test modulation and demoulation"""
     samples, fs, dur = gmsk_modulator.modulate(test_data)
 
-    demod_bits, signal = gmsk_modulator.demodulate(fs, samples)
+    demod_bits, signal = gmsk_modulator.demodulate(samples, fs)
 
     data_res = list()
 

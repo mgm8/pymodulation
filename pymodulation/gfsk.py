@@ -25,7 +25,6 @@ from scipy.signal import upfirdn, lfilter
 
 _GFSK_DEFAULT_OVERSAMPLING_FACTOR = 100
 
-
 class GFSK:
     """
     GFSK modulator.
@@ -38,17 +37,17 @@ class GFSK:
         :param modidx: Modulation index.
         :type: float
 
-        :param bt: BT product (bandwidth x bit period) for GFSK
+        :param bt: BT product (bandwidth x bit period) for GFSK.
         :type: float
 
-        :param baud: The desired data rate in bps
+        :param baud: The desired data rate in bps.
         :type: int
 
         :return None
         """
         self._mod_index = float()
-        self._bt = float()
-        self._baudrate = int()
+        self._bt        = float()
+        self._baudrate  = int()
 
         self.set_modulation_index(modidx)
         self.set_bt(bt)
@@ -98,7 +97,7 @@ class GFSK:
         """
         Sets the baudrate.
 
-        :param baud: The new baudrate in bps;
+        :param baud: The new baudrate in bps.
         :type: int
 
         :return: None.
@@ -121,12 +120,17 @@ class GFSK:
         :param data: input integer list to modulate (bytes as integers)
         :type: list
 
-        :param sps: samples per symbol
+        :param sps: Samples per symbol.
         :type: int
 
-        :return: s_complex: baseband GFSK signal (I+jQ)
-        :return: samp: Sample rate S/s
-        :return: dur: Signal duration in seconds
+        :return: s_complex: baseband GFSK signal (I+jQ).
+        :rtype: np.ndarray
+
+        :return: samp: Sample rate in S/s.
+        :rtype: int
+
+        :return: dur: Signal duration in seconds.
+        :rtype: float
         """
         I, Q, fs, dur = self.get_iq(data, sps)
         s_complex = I + 1j * Q  # Complex baseband representation
@@ -137,16 +141,23 @@ class GFSK:
         """
         Computes the IQ data of the GFSK modulated signal.
 
-        :param data: input integer list to modulate (bytes as integers)
+        :param data: Input integer list to modulate (bytes as integers).
         :type: list
 
-        :param sps: samples per symbol
+        :param sps: Samples per symbol.
         :type: int
 
         :return: I: I data of the modulated signal
+        :rtype: TODO
+
         :return: Q: Q data of the modulated signal
-        :return: samp: Sample rate S/s
+        :rtype: TODO
+
+        :return: samp: Sample rate in S/s.
+        :rtype: int
+
         :return: dur: Signal duration in seconds
+        :rtype: float
         """
         # Convert to array of bits
         data = self._int_list_to_bit_list(data)
@@ -154,29 +165,25 @@ class GFSK:
         data = np.array(data)
 
         # Timing parameters
-        fc = self.get_baudrate()  # Carrier frequency = Data transfer rate in bps
-        fs = sps * fc  # Sample frequency in Hz
-        Ts = np.float64(1.0) / fs  # Sample period in seconds
-        Tb = sps * Ts  # Bit period in seconds
+        fc = self.get_baudrate()    # Carrier frequency = Data transfer rate in bps
+        fs = sps * fc               # Sample frequency in Hz
+        Ts = np.float64(1.0) / fs   # Sample period in seconds
+        Tb = sps * Ts               # Bit period in seconds
 
         c_t = upfirdn(h=[1] * sps, x=2 * data - 1, up=sps)  # NRZ pulse train c(t)
-        k = 1  # Truncation length for Gaussian LPF
-        h_t = self.gaussian_lpf(Tb, sps, k)  # Gaussian LPF
-        b_t = np.convolve(
-            h_t, c_t, "full"
-        )  # Convolve c(t) with Gaussian LPF to get b(t)
-        bnorm_t = b_t / np.max(
-            np.abs(b_t)
-        )  # Normalize the output of Gaussian LPF to +/-1
+        k = 1                                               # Truncation length for Gaussian LPF
+        h_t = self.gaussian_lpf(Tb, sps, k)                 # Gaussian LPF
+        b_t = np.convolve(h_t, c_t, "full")                 # Convolve c(t) with Gaussian LPF to get b(t)
+        bnorm_t = b_t / np.max(np.abs(b_t))                 # Normalize the output of Gaussian LPF to +/-1
 
         # Integrate to get phase information
-        h = np.float64(self.get_modulation_index())  # Modulation index
+        h = np.float64(self.get_modulation_index())         # Modulation index
         phi_t = lfilter(b=[1], a=[1, -1], x=bnorm_t * Ts) * h * np.pi / Tb
         I = np.cos(phi_t)
-        Q = np.sin(phi_t)  # Cross-correlated baseband I/Q signals
+        Q = np.sin(phi_t)                                   # Cross-correlated baseband I/Q signals
 
         # Sampling values
-        dur = len(data) * Tb  # Transmission duration in seconds
+        dur = len(data) * Tb        # Transmission duration in seconds
 
         return I, Q, fs, dur
 
@@ -184,15 +191,20 @@ class GFSK:
         """
         Generates the GFSK modulated signal in time domain.
 
-        :param data: input integer list to modulate (bytes as integers)
+        :param data: Input integer list to modulate (bytes as integers).
         :type: list
 
-        :param sps: samples per symbol
+        :param sps: Samples per symbol.
         :type: int
 
-        :return: s_t: GFSK modulated signal with carrier s(t) (time domain)
-        :return: samp: Sample rate S/s
-        :return: dur: Signal duration in seconds
+        :return: s_t: GFSK modulated signal with carrier s(t) (time domain).
+        :rtype: TODO
+
+        :return: samp: Sample rate in S/s.
+        :rtype: int
+
+        :return: dur: Signal duration in seconds.
+        :rtype: float
         """
         I, Q, samp, dur = self.get_iq(data, sps)
 
@@ -200,10 +212,10 @@ class GFSK:
         fs = sps * fc
         Ts = 1 / fs
 
-        t = Ts * np.arange(start=0, stop=len(I))  # Time base for RF carrier
+        t = Ts * np.arange(start=0, stop=len(I))    # Time base for RF carrier
         sI_t = I * np.cos(2 * np.pi * fc * t)
         sQ_t = Q * np.sin(2 * np.pi * fc * t)
-        s_t = sI_t - sQ_t  # s(t) - GFSK with RF carrier
+        s_t = sI_t - sQ_t                           # s(t) - GFSK with RF carrier
 
         return s_t, t, samp, dur
 
@@ -211,27 +223,25 @@ class GFSK:
         """
         Generate filter coefficients of Gaussian low pass filter.
 
-        :param Tb: bit period
+        :param Tb: Bit period.
         :type: float
 
-        :param sps: samples per symbol
+        :param sps: Samples per symbol.
         :type: int
 
-        :param k: span length of the pulse (bit interval)
+        :param k: Span length of the pulse (bit interval).
         :type: float
 
         :return h_norm: normalized filter coefficients of Gaussian LPF
         :rtype: list
         """
         B = self.get_bt() / Tb  # Bandwidth of the filter
+
         # Truncated time limits for the filter
         t = np.arange(start=-k * Tb, stop=k * Tb + Tb / sps, step=Tb / sps)
-        h = (
-            B
-            * np.sqrt(2 * np.pi / (np.log(2)))
-            * np.exp(-2 * (t * np.pi * B) ** 2 / (np.log(2)))
-        )
+        h = (B * np.sqrt(2 * np.pi / (np.log(2))) * np.exp(-2 * (t * np.pi * B) ** 2 / (np.log(2))))
         h_norm = h / np.sum(h)
+
         return h_norm
 
     def gaussian_pulse(self, Tb, sps, k):
@@ -239,8 +249,13 @@ class GFSK:
         Construct the Gaussian pulse shape from gaussian filter impulse response taps.
 
         :param Tb: Bit period.
+        :type: float
+
         :param sps: Samples per symbol.
+        :type: int
+
         :param k: Span of the gaussian filter impulse response.
+        :type: TODO
 
         :return: Gaussian pulse shape.
         :rtype: np.ndarray
@@ -268,14 +283,15 @@ class GFSK:
 
         return res
 
-    def demodulate(self, fs, iq_samples):
+    def demodulate(self, iq_samples, fs):
         """
         Perform GFSK demodulation.
 
-        :param fs: Sample rate in S/s
+        :param iq_samples: IQ samples.
+        :type: np.ndarray
 
-        :param iq_samples: IQ samples
-        :type: np.array
+        :param fs: Sample rate in S/s.
+        :type: int
 
         :return: The demodulated bitstream.
         :rtype: list
@@ -308,8 +324,10 @@ class GFSK:
         Extract frequency deviations using phase changes in IQ samples.
 
         :param iq_samples: IQ samples.
+        :type: np.ndarray
 
         :return: TODO
+        :rtype: TODO
         """
         freq_deviation = np.angle(iq_samples[1:] * np.conj(iq_samples[:-1]))
 
@@ -319,10 +337,14 @@ class GFSK:
         """
         Non-coherent demodulation based on frequency discrimination.
 
-        :param fs: sample rate in Hz
-        :param samples: signal IQ samples
+        :param samples: Signal IQ samples.
+        :type: np.ndarray
+
+        :param fs: Sample rate in S/s.
+        :type: int
 
         :return: Soft symbols at the same rate of the input samples (meaning that sps remains the same, useful for time synchronization loop later).
+        :rtype: TODO
         """
         iq_samples = np.asarray(samples, dtype=np.complex64)
 
