@@ -5,8 +5,8 @@
 <a href="https://pypi.org/project/pymodulation/">
     <img src="https://img.shields.io/pypi/v/pymodulation?style=for-the-badge">
 </a>
-<a href="https://doi.org/10.5281/zenodo.18202698">
-    <img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18202698-blue?style=for-the-badge">
+<a href="https://doi.org/10.5281/zenodo.18202697">
+    <img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18202697-blue?style=for-the-badge">
 </a>
 <a href="https://pypi.org/project/pymodulation/">
     <img src="https://img.shields.io/pypi/pyversions/pymodulation?style=for-the-badge">
