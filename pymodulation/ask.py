@@ -24,6 +24,8 @@ import numpy as np
 
 from pymodulation.modulation import Modulation
 
+_ASK_DEFAULT_OVERSAMPLING_FACTOR=100
+
 class ASK(Modulation):
     """
     ASK modulator/demodulator.
@@ -51,11 +53,16 @@ class ASK(Modulation):
         """
         Sets the order of the ASK modulation.
 
-        :param order: ASK order.
+        :note: The possible order values are 2, 4 or 8.
+
+        :param order: ASK order (2, 4 or 8).
         :type: int
 
         :return: None
         """
+        if order not in (2, 4, 8):
+            raise ValueError("ASK order must be 2, 4 or 8!")
+
         self._order = order
 
     def get_order(self):
@@ -67,17 +74,43 @@ class ASK(Modulation):
         """
         return self._order
 
-    def modulate(self, data: list) -> tuple(np.ndarray, int, float):
+    def modulate(self, data: list, L=_ASK_DEFAULT_OVERSAMPLING_FACTOR) -> tuple(np.ndarray, int, float):
         """
         Modulate data into ASK IQ samples (baseband).
 
         :param data: List of integers with the data bytes.
         :type: list
 
+        :param L: Oversampling factor (Tb/Ts)
+        :type: int
+
         :return: Tuple of (IQ samples, sample rate in Hz, transmission duration in seconds)
         :rtype: tuple(np.ndarray, float, float)
         """
-        return np.ndarray(), int(), float()
+        bits_per_symbol = int(np.log2(self.get_order()))
+
+        # Convert to array of bits
+        bits = np.array(self._int_list_to_bit_list(data))
+
+        # Bits -> symbol indices
+        symbols = bits.reshape(-1, bits_per_symbol)
+        # Treat each row as a big-endian binary number
+        weights = 1 << np.arange(bits_per_symbol - 1, -1, -1)
+        indices = symbols @ weights  # Integer symbol index in [0, order-1]
+
+        # Symbol index -> amplitude (Normalize)
+        amplitudes = indices / (self.get_order() - 1)  # float in [0, 1]
+
+        # Pulse shaping: rectangular (repeat each amplitude)
+        envelope = np.repeat(amplitudes, L).astype(np.float32)
+
+        # Build baseband IQ (Q = 0 for real ASK)
+        iq = envelope.astype(np.complex64)
+
+        fs = L * self.get_baudrate()                # Sample rate
+        dur = len(data) * 8 /self.get_baudrate()    # Signal duration
+
+        return iq, fs, dur
 
     def demodulate(self, samples: np.ndarray, fs) -> list:
         """

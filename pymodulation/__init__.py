@@ -22,7 +22,7 @@
 
 from pymodulation.version import __version__
 
-from pymodulation.bpsk import ASK
+from pymodulation.ask import ASK
 from pymodulation.bpsk import BPSK
 from pymodulation.gfsk import GFSK
 from pymodulation.gmsk import GMSK
