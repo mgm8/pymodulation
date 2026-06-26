@@ -64,14 +64,13 @@ If you use PyModulation in your academic work or project, you can cite it:
 
 ```
 @misc{marcelino2026,
-    author       = {Marcelino, Gabriel Mariano},
+    author       = {Marcelino, Gabriel and Augusto Porto Freitas, Carlos},
     title        = {PyModulation},
-    month        = jan,
+    month        = jun,
     year         = 2026,
-    publisher    = {Zenodo},
-    version      = {v0.1},
-    doi          = {10.5281/zenodo.18202698},
-    url          = {https://doi.org/10.5281/zenodo.18202698},
+    howpublished = {Zenodo},
+    doi          = {10.5281/zenodo.18202697},
+    url          = {https://doi.org/10.5281/zenodo.18202697},
 }
 ```
 
