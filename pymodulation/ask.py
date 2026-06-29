@@ -21,6 +21,7 @@
 #
 
 import numpy as np
+from scipy.signal import firwin, filtfilt
 
 from pymodulation.modulation import Modulation
 
@@ -112,11 +113,11 @@ class ASK(Modulation):
 
         return iq, fs, dur
 
-    def demodulate(self, samples: np.ndarray, fs) -> list:
+    def demodulate(self, samples: np.ndarray, fs, lpf_cutoff=1000.0, use_kmeans=True) -> list:
         """
         Demodulate ASK IQ samples into bits.
 
-        :param samples: IQ samples.
+        :param samples: Base band IQ samples.
         :type: np.ndarray
 
         :param fs: Sample rate in S/s
@@ -124,4 +125,207 @@ class ASK(Modulation):
 
         :return: Demodulated bits (0 or 1).
         """
-        return list()
+        bits_per_symbol = int(np.log2(self.get_order()))
+        samples_per_symbol = int(fs/self.get_baudrate())
+
+        # Envelope extraction
+        envelope_raw = np.abs(samples).astype(np.float32)
+
+        # Low-pass filter
+        if samples_per_symbol is not None:
+            symbol_rate = fs / samples_per_symbol
+        else:
+            # Rough estimate for filter design; refined below
+            symbol_rate = fs / 10.0
+
+        if lpf_cutoff is None:
+            lpf_cutoff = 0.75 * symbol_rate
+            # Clamp to usable range
+            lpf_cutoff = max(lpf_cutoff, fs * 0.01)
+            lpf_cutoff = min(lpf_cutoff, fs * 0.45)
+
+        envelope = self._lowpass_filter(envelope_raw, lpf_cutoff, fs)
+
+        # Step 4 – Symbol timing recovery
+        if samples_per_symbol is None:
+            sps_max = max(2, len(envelope) // 4)
+            samples_per_symbol = estimate_samples_per_symbol(envelope, fs, sps_max=min(sps_max, 512))
+
+            # Now that we have SPS, re-filter with correct cutoff
+            if lpf_cutoff is None:
+                lpf_cutoff = 0.75 * (fs / samples_per_symbol)
+                lpf_cutoff = max(lpf_cutoff, fs * 0.01)
+                lpf_cutoff = min(lpf_cutoff, fs * 0.45)
+                envelope = self._lowpass_filter(envelope_raw, lpf_cutoff, fs)
+
+        symbol_offset = self._find_symbol_offset(envelope, samples_per_symbol)
+
+        symbol_amps = envelope[symbol_offset::samples_per_symbol].astype(np.float32)
+
+        # Step 5 & 6 – Amplitude slicing / decision
+        if use_kmeans:
+            levels = self._estimate_levels(symbol_amps, self.get_order())
+        else:
+            lo, hi = float(symbol_amps.min()), float(symbol_amps.max())
+            levels = np.linspace(lo, hi, self.get_order(), dtype=np.float32)
+
+        symbol_indices = self._decide_symbols(symbol_amps, levels)
+
+        # Step 7 – Symbols -> bits
+        bits = self._symbols_to_bits(symbol_indices, bits_per_symbol, msb_first=True)
+
+        return list(bits)
+
+    def _lowpass_filter(self, signal: np.ndarray, cutoff: float, sample_rate: float, num_taps: int = 64) -> np.ndarray:
+        """
+        Zero-phase FIR low-pass filter using a Hann-windowed sinc kernel.
+
+        :param signal: 1-D real array.
+        :type: np.ndarray
+
+        :param cutoff: cutoff frequency in Hz.
+        :type: float
+
+        :param sample_rate: Sample rate in S/sec.
+        :type: float
+
+        :param num_taps: Filter length (must be even; +1 added internally for symmetry).
+        :type: int
+
+        :return: Filtered signal (same length as input, no group-delay shift).
+        :rtype: np.ndarray
+        """
+        nyq = sample_rate / 2.0
+        # filtfilt needs signal length > padlen ≈ 3 * num_taps; clamp accordingly
+        max_taps = max(3, (len(signal) // 3) - 1)
+        num_taps = min(num_taps, max_taps)
+        if num_taps % 2 == 0:
+            num_taps -= 1        # firwin needs odd length for symmetric filter
+        num_taps = max(num_taps, 3)
+        taps = firwin(num_taps, cutoff / nyq, window="hann")
+
+        return filtfilt(taps, [1.0], signal).astype(np.float32)
+
+    def _estimate_levels(self, symbol_amps: np.ndarray, order: int, min_cluster_ratio: float = 0.5) -> np.ndarray:
+        """
+        Estimate ASK amplitude levels from received symbol amplitudes using
+        k-means clustering (1-D, converges in a few iterations).
+
+        If the data does not exercise all ``order`` amplitude levels (e.g. a
+        short packet that never contains the lowest level), k-means will split
+        real clusters incorrectly.  The function detects this via a minimum
+        inter-centroid spacing check and falls back to uniformly-spaced levels
+        anchored to the observed [min, max] range.
+
+        :param symbol_amps: 1-D float array of sampled amplitudes.
+        :type: np.ndarray
+
+        :param order: Number of ASK levels (must be a power of 2).
+        :type: int
+
+        :param min_cluster_ratio: Centroids whose nearest-neighbour gap is smaller than ``min_cluster_ratio × expected_gap`` trigger the uniform fallback.
+        :type: float
+
+        :return: Sorted array of ``order`` estimated level centroids.
+        :rtype:
+        """
+        lo, hi = float(symbol_amps.min()), float(symbol_amps.max())
+
+        # Degenerate: all symbols identical
+        if hi - lo < 1e-6:
+            return np.linspace(0.0, 1.0, order, dtype=np.float32)
+
+        # Initialise centroids uniformly between observed min and max
+        centroids = np.linspace(lo, hi, order, dtype=np.float64)
+
+        for _ in range(200):
+            dists = np.abs(symbol_amps[:, None] - centroids[None, :])
+            labels = np.argmin(dists, axis=1)
+            new_centroids = np.array(
+                [
+                    symbol_amps[labels == k].mean() if np.any(labels == k) else centroids[k]
+                    for k in range(order)
+                ],
+                dtype=np.float64,
+            )
+            if np.allclose(centroids, new_centroids, atol=1e-9):
+                break
+            centroids = new_centroids
+
+        centroids = np.sort(centroids)
+
+        # Sanity-check: if adjacent centroids are suspiciously close the payload
+        # likely doesn't cover all levels → fall back to a uniform grid.
+        if order > 1:
+            gaps = np.diff(centroids)
+            expected_gap = (hi - lo) / (order - 1)
+            if np.any(gaps < min_cluster_ratio * expected_gap):
+                centroids = np.linspace(lo, hi, order, dtype=np.float64)
+
+        return centroids.astype(np.float32)
+
+    def _find_symbol_offset(self, envelope: np.ndarray, sps: int) -> int:
+        """
+        Find the best sampling phase within one symbol period.
+
+        Picks the offset that maximises the variance of sampled values —
+        high variance means we're sampling near symbol centres rather than
+        transitions.
+
+        :param envelope: Real envelope signal.
+        :type: np.ndarray
+
+        :param sps: Samples per symbol.
+        :type: int
+
+        :return: Best integer offset in [0, sps-1].
+        :rtype: int
+        """
+        best_offset, best_var = 0, -1.0
+        for offset in range(sps):
+            samples = envelope[offset::sps]
+            v = float(np.var(samples))
+            if v > best_var:
+                best_var = v
+                best_offset = offset
+
+        return best_offset
+
+    def _decide_symbols(self, symbol_amps: np.ndarray, levels: np.ndarray) -> np.ndarray:
+        """
+        Map each amplitude sample to the nearest level index.
+
+        :param symbol_amps: 1-D float array.
+        :type: np.ndarray
+
+        :param levels: Sorted array of level centroids (length = ASK order).
+        :type: np.ndarray
+
+        :return: Integer array of symbol indices in [0, order-1].
+        :rtype: np.ndarray
+        """
+        dists = np.abs(symbol_amps[:, None] - levels[None, :])
+        return np.argmin(dists, axis=1).astype(np.uint8)
+
+    def _symbols_to_bits(self, indices: np.ndarray, bits_per_symbol: int, msb_first: bool = True) -> np.ndarray:
+        """
+        Convert symbol indices to a flat bit array.
+
+        :param indices: Integer array of symbol indices.
+        :type: np.ndarray
+
+        :param bits_per_symbol: Bits per symbol.
+        :type: int
+
+        :param msb_first: Flag for bit order within each symbol.
+        :type: bool
+
+        :return: Flat uint8 bit array
+        :rtype: np.ndarray
+        """
+        bits = np.zeros(len(indices) * bits_per_symbol, dtype=np.uint8)
+        for i, idx in enumerate(indices):
+            for b in range(bits_per_symbol):
+                bit_pos = (bits_per_symbol - 1 - b) if msb_first else b
+                bits[i * bits_per_symbol + b] = (int(idx) >> bit_pos) & 1
+        return bits
