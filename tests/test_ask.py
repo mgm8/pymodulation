@@ -233,3 +233,207 @@ def test_estimate_levels_all_orders(ask_modulator, order):
     estimated = ask_modulator._estimate_levels(samples, order)
 
     np.testing.assert_allclose(estimated, true_levels, atol=0.1)
+
+def test_find_symbol_offset(ask_modulator):
+    """Finds the correct offset"""
+    sps = 8
+    offset = 3
+
+    # Two ASK levels sampled at the symbol center
+    symbols = np.array([0, 1] * 50, dtype=float)
+
+    envelope = np.zeros(len(symbols) * sps)
+
+    for i, sym in enumerate(symbols):
+        envelope[i * sps + offset] = sym
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == offset
+
+def test_find_symbol_offset_constant_signal(ask_modulator):
+    """Constant envelope"""
+    sps = 8
+    envelope = np.ones(100)
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == 0
+
+def test_find_symbol_offset_range(ask_modulator):
+    """Result is within bounds"""
+    rng = np.random.default_rng(42)
+
+    sps = 16
+    envelope = rng.normal(size=1000)
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert isinstance(estimated, int)
+    assert 0 <= estimated < sps
+
+def test_find_symbol_offset_with_noise(ask_modulator):
+    """Robust against noise"""
+    rng = np.random.default_rng(42)
+
+    sps = 10
+    offset = 4
+
+    symbols = rng.integers(0, 2, 300).astype(float)
+
+    envelope = rng.normal(scale=0.05, size=len(symbols) * sps)
+
+    for i, sym in enumerate(symbols):
+        envelope[i * sps + offset] += sym
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == offset
+
+@pytest.mark.parametrize("sps,offset", [
+    (4, 0),
+    (4, 2),
+    (8, 3),
+    (10, 7),
+    (16, 11),
+])
+def test_find_symbol_offset(ask_modulator, sps, offset):
+    """Parametized find symbol offset test"""
+    rng = np.random.default_rng(42)
+
+    symbols = rng.integers(0, 2, 300).astype(float)
+
+    envelope = rng.normal(scale=0.02, size=len(symbols) * sps)
+
+    for i, sym in enumerate(symbols):
+        envelope[i * sps + offset] += sym
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == offset
+
+@pytest.mark.parametrize(
+    "amps, expected",
+    [
+        ([0.05, 0.9, 1.95, 2.8], [0, 1, 2, 3]),
+        ([0.5, 1.5], [0, 1]),                   # midpoint -> lower index
+        ([-1.0, 4.0], [0, 3]),                  # outside range
+        ([0.0, 1.0, 2.0, 3.0], [0, 1, 2, 3]),   # exact levels
+    ],
+)
+def test_decide_symbols(ask_modulator, amps, expected):
+    """Correct symbol decisions"""
+    levels = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float32)
+
+    symbols = ask_modulator._decide_symbols(np.asarray(amps), levels)
+
+    np.testing.assert_array_equal(symbols, np.asarray(expected, dtype=np.uint8))
+
+    assert symbols.dtype == np.uint8
+
+def test_decide_symbols_midpoints(ask_modulator):
+    """Midpoint (tie) behavior"""
+    levels = np.array([0.0, 1.0, 2.0], dtype=np.float32)
+
+    symbol_amps = np.array([
+        0.5,   # between 0 and 1
+        1.5,   # between 1 and 2
+    ])
+
+    symbols = ask_modulator._decide_symbols(symbol_amps, levels)
+
+    expected = np.array([0, 1], dtype=np.uint8)
+
+    np.testing.assert_array_equal(symbols, expected)
+
+def test_decide_symbols_exact_levels(ask_modulator):
+    """Exact level values"""
+    levels = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float32)
+
+    symbols = ask_modulator._decide_symbols(levels, levels)
+
+    np.testing.assert_array_equal(symbols, np.arange(4, dtype=np.uint8))
+
+def test_decide_symbols_outside_range(ask_modulator):
+    """Values outside the range"""
+    levels = np.array([0.0, 1.0, 2.0], dtype=np.float32)
+
+    symbol_amps = np.array([-10.0, 10.0])
+
+    symbols = ask_modulator._decide_symbols(symbol_amps, levels)
+
+    expected = np.array([0, 2], dtype=np.uint8)
+
+    np.testing.assert_array_equal(symbols, expected)
+
+@pytest.mark.parametrize(
+    "indices,bps,msb_first,expected",
+    [
+        (
+            [0, 1, 2, 3],
+            2,
+            True,
+            [0, 0, 0, 1, 1, 0, 1, 1],
+        ),
+        (
+            [0, 1, 2, 3],
+            2,
+            False,
+            [0, 0, 1, 0, 0, 1, 1, 1],
+        ),
+        (
+            [5, 2],
+            3,
+            True,
+            [1, 0, 1, 0, 1, 0],
+        ),
+        (
+            [5, 2],
+            3,
+            False,
+            [1, 0, 1, 0, 1, 0],
+        ),  # 5=101 and 2=010 are palindromes
+    ],
+)
+def test_symbols_to_bits(ask_modulator, indices, bps, msb_first, expected):
+    """MSB-first (default)"""
+    bits = ask_modulator._symbols_to_bits(np.asarray(indices, dtype=np.uint8), bits_per_symbol=bps, msb_first=msb_first)
+
+    np.testing.assert_array_equal(bits, np.asarray(expected, dtype=np.uint8))
+
+    assert bits.dtype == np.uint8
+
+def test_symbols_to_bits_lsb_first(ask_modulator):
+    """LSB-first"""
+    indices = np.array([0, 1, 2, 3], dtype=np.uint8)
+
+    bits = ask_modulator._symbols_to_bits( indices, bits_per_symbol=2, msb_first=False)
+
+    expected = np.array([
+        0, 0,   # 0 -> 00
+        1, 0,   # 1 -> 10
+        0, 1,   # 2 -> 01
+        1, 1,   # 3 -> 11
+    ], dtype=np.uint8)
+
+    np.testing.assert_array_equal(bits, expected)
+
+def test_symbols_to_bits_three_bits(ask_modulator):
+    """Three bits per symbol"""
+    indices = np.array([5, 2], dtype=np.uint8)
+
+    bits = ask_modulator._symbols_to_bits(indices, bits_per_symbol=3)
+
+    expected = np.array([
+        1, 0, 1,   # 5 -> 101
+        0, 1, 0,   # 2 -> 010
+    ], dtype=np.uint8)
+
+    np.testing.assert_array_equal(bits, expected)
+
+def test_symbols_to_bits_empty(ask_modulator):
+    """Empty input"""
+    bits = ask_modulator._symbols_to_bits(np.array([], dtype=np.uint8), bits_per_symbol=2)
+
+    assert bits.dtype == np.uint8
+    assert bits.size == 0
