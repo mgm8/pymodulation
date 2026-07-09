@@ -30,6 +30,8 @@ from ask import ASK
 # Parameterized test cases
 ORDERS      = [2, 4, 8]
 BAUD_RATES  = [1200, 9600, 19200]
+_SPS        = 16          # samples per symbol used across most TD tests
+_FS         = 1_000_000.0 # sample rate (Hz)
 
 # Test fixtures
 @pytest.fixture
@@ -476,3 +478,123 @@ def test_bits_to_symbols_empty(ask_modulator):
 
     assert symbols.dtype == np.float32
     assert symbols.size == 0
+
+# Return-value contract
+
+def test_modulate_time_domain_returns_three_arrays(ask_modulator):
+    """modulate_time_domain must return exactly three numpy arrays"""
+    result = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert len(result) == 4
+    s_t, t, fs, dur = result
+    assert isinstance(s_t,  np.ndarray)
+    assert isinstance(t,    np.ndarray)
+    assert isinstance(fs,   int)
+    assert isinstance(dur,  float)
+
+def test_modulate_time_domain_output_dtype(ask_modulator):
+    """All three output arrays must be float64"""
+    s_t, t, fs, dur = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert s_t.dtype    == np.float64
+    assert t.dtype      == np.float64
+
+def test_modulate_time_domain_arrays_same_length(ask_modulator):
+    """t, envelope, and signal must have identical length"""
+    s_t, t, fs, dur = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert len(s_t) == len(t)
+
+def test_modulate_time_domain_arrays_are_1d(ask_modulator):
+    """All output arrays must be one-dimensional"""
+    s_t, t, fs, dur = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert s_t.ndim     == 1
+    assert t.ndim       == 1
+
+# Discrete time axis
+
+def test_modulate_time_domain_time_starts_at_zero(ask_modulator):
+    """Time axis must start at t[0] = 0"""
+    _, t, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, _FS)
+
+    assert t[0] == 0.0
+
+# Output length
+
+@pytest.mark.parametrize("n_bytes,order,sps,expected_symbols", [
+    (1, 2, 16,  8),   # 8 bits / 1 bps = 8 symbols
+    (1, 4, 16,  4),   # 8 bits / 2 bps = 4 symbols
+    (1, 8, 16,  3),   # 8 bits / 3 bps → padded = 3 symbols
+    (2, 2,  8, 16),
+    (4, 4,  8, 16),
+])
+def test_modulate_time_domain_output_length(n_bytes, order, sps, expected_symbols):
+    """Output length must equal n_symbols * samples_per_symbol"""
+    mod = ASK(order=order, baud=9600)
+    s_t, t, fs, dur = mod.modulate_time_domain([0xAA] * n_bytes, sps, _FS)
+
+    assert len(s_t)     == expected_symbols * sps
+    assert len(t)       == expected_symbols * sps
+
+def test_modulate_time_domain_length_scales_with_data(ask_modulator):
+    """Output length must double when input data doubles"""
+    _, t1, _, _ = ask_modulator.modulate_time_domain([0xAA],       _SPS, _FS)
+    _, t2, _, _ = ask_modulator.modulate_time_domain([0xAA, 0x55], _SPS, _FS)
+
+    assert len(t2) == 2 * len(t1)
+
+def test_modulate_time_domain_length_scales_with_sps(ask_modulator):
+    """Output length must scale linearly with samples_per_symbol"""
+    _, t8,  _, _ = ask_modulator.modulate_time_domain([0xFF], 8,  _FS)
+    _, t16, _, _ = ask_modulator.modulate_time_domain([0xFF], 16, _FS)
+
+    assert len(t16) == 2 * len(t8)
+
+def test_modulate_time_domain_signal_zero_when_envelope_zero(ask_modulator):
+    """0x00 -> envelope = 0 -> signal must be zero everywhere"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0x00], _SPS, _FS)
+
+    np.testing.assert_array_equal(signal, 0.0)
+
+def test_modulate_time_domain_signal_peak_equals_one(ask_modulator):
+    """0xFF (OOK) -> envelope = 1 -> |signal|_max must equal 1"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, _FS)
+
+    assert np.max(np.abs(signal)) == pytest.approx(1.0, abs=1e-2)
+
+def test_modulate_time_domain_signal_no_nan_or_inf(ask_modulator, test_data):
+    """Output must not contain NaN or Inf for arbitrary input data"""
+    signal, t, _, _ = ask_modulator.modulate_time_domain(test_data, _SPS, _FS)
+
+    assert not np.any(np.isnan(signal))
+    assert not np.any(np.isinf(t))
+
+# Carrier phase
+
+def test_modulate_time_domain_phase_zero_first_sample(ask_modulator):
+    """φ₀ = 0, bit = 1, t[0] = 0  ->  s[0] = cos(0) = 1"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=0.0)
+
+    assert signal[0] == pytest.approx(1.0, abs=1e-12)
+
+def test_modulate_time_domain_phase_pi_inverts_signal(ask_modulator):
+    """φ₀ = pi shifts the cosine by pi, inverting every sample"""
+    s0, _, _, _   = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=0.0)
+    s_pi, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=np.pi)
+
+    np.testing.assert_allclose(s_pi, -s0, atol=1e-12)
+
+def test_modulate_time_domain_phase_2pi_equals_zero(ask_modulator):
+    """φ₀ = 2pi must produce the same signal as φ₀ = 0"""
+    s0, _, _, _    = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=0.0)
+    s_2pi, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=2 * np.pi)
+
+    np.testing.assert_allclose(s_2pi, s0, atol=1e-12)
+
+@pytest.mark.parametrize("phase", [0.0, np.pi / 4, np.pi / 2, np.pi, 3 * np.pi / 2])
+def test_modulate_time_domain_phase_first_sample_parametrized(ask_modulator, phase):
+    """s[0] = cos(φ₀) for any initial phase when bit = 1"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=phase)
+
+    assert signal[0] == pytest.approx(np.cos(phase), abs=1e-12)

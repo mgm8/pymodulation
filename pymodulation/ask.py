@@ -113,59 +113,53 @@ class ASK(Modulation):
 
         return iq, fs, dur
 
-    def modulate_time_domain(self, data: list, samples_per_symbol: int = 16, sample_rate: float = 1e6, carrier_phase: float = 0.0, normalize: bool = True) -> tuple(np.ndarray, np.ndarray):
+    def modulate_time_domain(self, data: list, sps: int = _ASK_DEFAULT_OVERSAMPLING_FACTOR, carrier_phase: float = 0.0) -> tuple(np.ndarray, np.ndarray, int, float):
         """
-        Generate a real-valued bandpass ASK signal directly in the time domain.
+        Generates the ASK modulated signal in time domain.
 
-        The output is:
+        :param data: Input integer list to modulate (bytes as integers).
+        :type data: list[int]
 
-            s[n] = envelope[n] · cos(2π · f_c · n/f_s + φ₀)
+        :param sps: Samples per symbol.
+        :type sps: int
 
-        where ``envelope[n]`` is the pulse-shaped amplitude sequence and the
-        carrier multiplication is performed sample-by-sample in the time domain
-        — no complex IQ representation is used internally.
+        :param carrier_phase: Initial carrier phase φ₀ in radians.
+        :type carrier_phase: float
 
-        :param data: List of byte values (0–255).
-        :type: list
+        :return s_t: ASK modulated signal with carrier s(t) (time domain).
+        :rtype s_t: np.ndarray
 
-        :param samples_per_symbol: number of samples per symbol period.
-        :type: int
+        :return t: Time base for RF carrier in seconds.
+        :rtype t: np.ndarray
 
-        :param sample_rate: sample rate f_s in Hz.
-        :type: float
+        :return samp: Sample rate in S/s.
+        :rtype samp: int
 
-        :param carrier_freq: carrier frequency f_c in Hz (must satisfy f_c < f_s / 2).
-        :type: float
-
-        :param carrier_phase: initial carrier phase φ₀ in radians (default 0).
-        :type: float
-
-        :param normalize: if True, amplitude levels are in [0, 1].
-        :type: bool
-
-        np.ndarray of float32
-            Real-valued bandpass signal, length =
-            n_symbols × samples_per_symbol  (+ filter tail for shaped pulses)
+        :return dur: Signal duration in seconds.
+        :rtype dur: float
         """
-        # Step 1: bytes -> bits -> symbol amplitudes
+        # Derive sample rate and time base from baudrate and sps,
+        # mirroring: fs = sps * fc  and  Ts = 1/fs
+        fc = self.get_baudrate()    # Carrier freq = symbol rate in Hz
+        fs = sps * fc               # Sample rate in S/s
+        Ts = 1.0 / fs               # Sample period
+
+        # Step 1: bytes -> bits -> per-symbol amplitudes
         bits = np.array(self._int_list_to_bit_list(data))
         amplitudes = self._bits_to_symbols(bits)
-        # amplitudes shape: (n_symbols,)  values in [0, 1] (or [0, order-1])
 
-        # Step 2: build impulse train
-        # Each symbol amplitude is held constant for `samples_per_symbol` samples.
-        envelope = np.repeat(amplitudes, samples_per_symbol).astype(np.float64)
+        # Step 2: baseband envelope — rectangular pulse shaping
+        envelope = np.repeat(amplitudes, sps).astype(np.float64)
 
-        # Step 3: discrete time axis
-        n_samples = len(envelope)
-        t = np.arange(start=n_samples, stop=len(bits) * L)
+        # Step 3: time base (matches GFSK convention: Ts * arange(len(signal)))
+        t = Ts * np.arange(start=0, stop=len(envelope))
+        dur = float(t[-1])          # Signal duration in seconds
 
         # Step 4: time-domain carrier multiplication
-        # s[n] = envelope[n] · cos(2π · f_c · n/f_s + φ₀)
-        carrier = np.cos(2.0 * np.pi * self.carrier_freq * t + carrier_phase)
-        signal  = (envelope * carrier).astype(np.float64)
+        # For pure ASK, Q = 0, so s(t) reduces to: envelope(t) * cos(2*pi*fc*t + φ₀)
+        s_t = envelope * np.cos(2.0 * np.pi * fc * t + carrier_phase)
 
-        return signal, t
+        return s_t, t, int(fs), dur
 
     def demodulate(self, samples: np.ndarray, fs, lpf_cutoff=1000.0, use_kmeans=True) -> list:
         """
