@@ -75,7 +75,7 @@ class ASK(Modulation):
         """
         return self._order
 
-    def modulate(self, data: list, L=_ASK_DEFAULT_OVERSAMPLING_FACTOR) -> tuple(np.ndarray, int, float):
+    def modulate(self, data: list, L=_ASK_DEFAULT_OVERSAMPLING_FACTOR) -> tuple:
         """
         Modulate data into ASK IQ samples (baseband).
 
@@ -113,7 +113,7 @@ class ASK(Modulation):
 
         return iq, fs, dur
 
-    def modulate_time_domain(self, data: list, sps: int = _ASK_DEFAULT_OVERSAMPLING_FACTOR, carrier_phase: float = 0.0) -> tuple(np.ndarray, np.ndarray, int, float):
+    def modulate_time_domain(self, data: list, sps: int = _ASK_DEFAULT_OVERSAMPLING_FACTOR, carrier_phase: float = 0.0) -> tuple:
         """
         Generates the ASK modulated signal in time domain.
 
