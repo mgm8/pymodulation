@@ -437,3 +437,42 @@ def test_symbols_to_bits_empty(ask_modulator):
 
     assert bits.dtype == np.uint8
     assert bits.size == 0
+
+@pytest.mark.parametrize(
+    "order,bits,expected",
+    [
+        (
+            4,
+            [0, 0, 0, 1, 1, 0, 1, 1],
+            [0/3, 1/3, 2/3, 3/3],
+        ),
+        (
+            4,
+            [1, 0, 1],          # padded -> 1010
+            [2/3, 2/3],
+        ),
+        (
+            8,
+            [0, 0, 0, 1, 0, 1, 1, 1, 1],
+            [0/7, 5/7, 7/7],
+        ),
+    ],
+)
+def test_bits_to_symbols(ask_modulator, order, bits, expected, monkeypatch):
+    """Test bits to symbols"""
+    monkeypatch.setattr(ask_modulator, "get_order", lambda: order)
+
+    symbols = ask_modulator._bits_to_symbols(np.asarray(bits, dtype=np.uint8))
+
+    np.testing.assert_allclose(symbols, np.asarray(expected, dtype=np.float32))
+
+    assert symbols.dtype == np.float32
+
+def test_bits_to_symbols_empty(ask_modulator):
+    """Empty input test"""
+    bits = np.array([], dtype=np.uint8)
+
+    symbols = ask_modulator._bits_to_symbols(bits)
+
+    assert symbols.dtype == np.float32
+    assert symbols.size == 0

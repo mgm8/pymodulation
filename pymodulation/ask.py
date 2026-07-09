@@ -113,6 +113,60 @@ class ASK(Modulation):
 
         return iq, fs, dur
 
+    def modulate_time_domain(self, data: list, samples_per_symbol: int = 16, sample_rate: float = 1e6, carrier_phase: float = 0.0, normalize: bool = True) -> tuple(np.ndarray, np.ndarray):
+        """
+        Generate a real-valued bandpass ASK signal directly in the time domain.
+
+        The output is:
+
+            s[n] = envelope[n] · cos(2π · f_c · n/f_s + φ₀)
+
+        where ``envelope[n]`` is the pulse-shaped amplitude sequence and the
+        carrier multiplication is performed sample-by-sample in the time domain
+        — no complex IQ representation is used internally.
+
+        :param data: List of byte values (0–255).
+        :type: list
+
+        :param samples_per_symbol: number of samples per symbol period.
+        :type: int
+
+        :param sample_rate: sample rate f_s in Hz.
+        :type: float
+
+        :param carrier_freq: carrier frequency f_c in Hz (must satisfy f_c < f_s / 2).
+        :type: float
+
+        :param carrier_phase: initial carrier phase φ₀ in radians (default 0).
+        :type: float
+
+        :param normalize: if True, amplitude levels are in [0, 1].
+        :type: bool
+
+        np.ndarray of float32
+            Real-valued bandpass signal, length =
+            n_symbols × samples_per_symbol  (+ filter tail for shaped pulses)
+        """
+        # Step 1: bytes -> bits -> symbol amplitudes
+        bits = np.array(self._int_list_to_bit_list(data))
+        amplitudes = self._bits_to_symbols(bits)
+        # amplitudes shape: (n_symbols,)  values in [0, 1] (or [0, order-1])
+
+        # Step 2: build impulse train
+        # Each symbol amplitude is held constant for `samples_per_symbol` samples.
+        envelope = np.repeat(amplitudes, samples_per_symbol).astype(np.float64)
+
+        # Step 3: discrete time axis
+        n_samples = len(envelope)
+        t = np.arange(start=n_samples, stop=len(bits) * L)
+
+        # Step 4: time-domain carrier multiplication
+        # s[n] = envelope[n] · cos(2π · f_c · n/f_s + φ₀)
+        carrier = np.cos(2.0 * np.pi * self.carrier_freq * t + carrier_phase)
+        signal  = (envelope * carrier).astype(np.float64)
+
+        return signal, t
+
     def demodulate(self, samples: np.ndarray, fs, lpf_cutoff=1000.0, use_kmeans=True) -> list:
         """
         Demodulate ASK IQ samples into bits.
@@ -305,7 +359,28 @@ class ASK(Modulation):
         :rtype: np.ndarray
         """
         dists = np.abs(symbol_amps[:, None] - levels[None, :])
+
         return np.argmin(dists, axis=1).astype(np.uint8)
+
+    def _bits_to_symbols(self, bits: np.ndarray) -> np.ndarray:
+        """
+        Pack `log2(order)` consecutive bits into one symbol amplitude.
+
+        :param bits: flat uint8 bit array (MSB-first within each symbol)
+        :type: np.ndarray
+
+        :return: float32 array of per-symbol amplitudes, length = len(bits) / log2(order)
+        :rtype: np.ndarray
+        """
+        bps = int(np.log2(self.get_order()))
+        pad = (-len(bits)) % bps
+        if pad:
+            bits = np.append(bits, np.zeros(pad, dtype=np.uint8))
+
+        weights = 1 << np.arange(bps - 1, -1, -1)   # Big-endian weights
+        indices = bits.reshape(-1, bps) @ weights   # Integer indices
+
+        return (indices / (self.get_order() - 1)).astype(np.float32)
 
     def _symbols_to_bits(self, indices: np.ndarray, bits_per_symbol: int, msb_first: bool = True) -> np.ndarray:
         """
@@ -328,4 +403,5 @@ class ASK(Modulation):
             for b in range(bits_per_symbol):
                 bit_pos = (bits_per_symbol - 1 - b) if msb_first else b
                 bits[i * bits_per_symbol + b] = (int(idx) >> bit_pos) & 1
+
         return bits
