@@ -14,6 +14,50 @@ Usage
 
 This section presents examples of how to use the library for each supported modulation type.
 
+ASK
+===
+
+The ASK modulation can be used through the *ASK* class, using the modulate and demodulate methods. An example of usage can be seen in the code below:
+
+.. code-block:: python
+
+    from pymodulation import ASK
+
+    mod = ASK(4, 9600)    # Order = 4, Baudrate = 9600 bps
+
+    data = list(range(100))
+
+    samples, fs, dur = mod.modulate(data)
+
+    print("IQ Samples:", samples[:10])
+
+    bits = mod.demodulate(samples, fs)
+
+    print("Demodulated bits:", list(map(int, bits)))
+
+The *modulate* method returns the IQ samples of the generated signal, the corresponding sampling rate, and the signal duration in seconds. The *demodulate* method allows the demodulation of a ASK signal, taking the corresponding IQ samples as input, and producing as output the data bitstream contained in the signal and the baseband signal samples (in NRZ format).
+
+OOK
+***
+
+For OOK, the usage is very similar to ASK, but with the difference that there is no need to define the order of the modulation (as expected for OOK, it is fixed as 2):
+
+.. code-block:: python
+
+    from pymodulation import OOK
+
+    mod = OOK(9600)    # Baudrate = 9600 bps
+
+    data = list(range(100))
+
+    samples, fs, dur = mod.modulate(data)
+
+    print("IQ Samples:", samples[:10])
+
+    bits = mod.demodulate(samples, fs)
+
+    print("Demodulated bits:", list(map(int, bits)))
+
 BPSK
 ====
 
