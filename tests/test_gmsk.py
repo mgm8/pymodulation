@@ -156,7 +156,6 @@ def test_gaussian_filter(gmsk_modulator):
     sps = 100
     g = gmsk_modulator.gaussian_pulse(1 / gmsk_modulator.get_baudrate(), sps, k)
 
-    print(len(g))
     assert isinstance(g, np.ndarray)
     assert len(g) == (2 * k + 1) * sps + 1
     assert np.isclose(np.sum(g), 1.0, rtol=1e-5)  # Should be normalized
