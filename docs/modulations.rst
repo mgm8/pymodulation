@@ -85,3 +85,24 @@ GMSK
 Gaussian Minimum Shift Keying (GMSK) is a continuous-phase modulation scheme derived from Frequency Shift Keying (FSK), where the digital signal is filtered using a Gaussian filter before modulation. This filtering smooths the phase transitions, resulting in a nearly constant envelope and significantly reduced spectral sidelobes compared to traditional FSK. The key feature of GMSK is its ability to achieve high spectral efficiency while maintaining low out-of-band emissions, making it ideal for bandwidth-constrained wireless systems.  
 
 A notable application of GMSK is in the Global System for Mobile Communications (GSM), where it was chosen for its robustness against interference and efficient use of available spectrum. The modulation's constant envelope allows for the use of highly efficient nonlinear power amplifiers, reducing power consumption in mobile devices. Additionally, GMSK's resistance to multipath fading and phase noise enhances performance in challenging radio environments. Despite its slightly higher complexity in demodulation compared to simpler FSK schemes, GMSK remains a widely adopted modulation technique due to its excellent balance between spectral efficiency, power efficiency, and reliability in wireless communication systems.
+
+QPSK
+====
+
+Quadrature Phase Shift Keying (QPSK) is a widely used digital modulation scheme that improves spectral efficiency by transmitting two bits of information per symbol. Unlike Binary Phase Shift Keying (BPSK), which uses two carrier phases, QPSK employs four equally spaced phase states separated by 90 degrees. Each phase represents a unique pair of bits, typically according to a Gray-coded mapping to minimize the bit error rate.
+
+The QPSK signal can be expressed as:
+
+.. math::
+
+   s(t) = A \cos(2\pi f_c t + \phi)
+
+where:
+
+* :math:`A` is the signal amplitude;
+* :math:`f_c` is the carrier frequency;
+* :math:`\phi` is the carrier phase, taking one of four values: :math:`0`, :math:`\pi/2`, :math:`\pi`, or :math:`3\pi/2` radians, according to the transmitted symbol.
+
+Since each QPSK symbol carries two bits, the symbol rate is half the bit rate for the same data throughput, resulting in twice the spectral efficiency of BPSK. When Gray coding is used, adjacent constellation points differ by only one bit, reducing the probability of multiple bit errors caused by incorrect symbol decisions. Under equivalent energy-per-bit conditions, QPSK achieves the same bit error rate (BER) performance as BPSK in an additive white Gaussian noise (AWGN) channel.
+
+Due to its excellent balance between bandwidth efficiency, power efficiency, and implementation complexity, QPSK is extensively used in satellite communications, wireless local area networks (WLANs), cellular communication systems and digital broadcasting standards.
