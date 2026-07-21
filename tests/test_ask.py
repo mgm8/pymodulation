@@ -1,0 +1,600 @@
+#
+# test_ask.py
+#
+# Copyright The PyModulation Contributors.
+#
+# This file is part of PyModulation library.
+#
+# PyModulation library is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# PyModulation library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with PyModulation library. If not, see <http://www.gnu.org/licenses/>.
+#
+#
+
+import random
+
+import pytest
+import numpy as np
+
+from ask import ASK
+
+# Parameterized test cases
+ORDERS      = [2, 4, 8]
+BAUD_RATES  = [1200, 9600, 19200]
+_SPS        = 16          # samples per symbol used across most TD tests
+_FS         = 1_000_000.0 # sample rate (Hz)
+
+# Test fixtures
+@pytest.fixture
+def ask_modulator():
+    """Fixture providing a default ASK modulator instance"""
+    return ASK(order=2, baud=9600)
+
+@pytest.fixture
+def test_data():
+    """Fixture providing test data (simple byte sequence)"""
+    return [random.randint(0, 255) for _ in range(1000)]
+
+def test_initialization(ask_modulator):
+    """Test that initialization sets the correct parameters"""
+    assert ask_modulator.get_order() == 2
+    assert ask_modulator.get_baudrate() == 9600
+
+@pytest.mark.parametrize("order", ORDERS)
+def test_order_setter(ask_modulator, order):
+    """Test order setter/getter"""
+    ask_modulator.set_order(order)
+    assert ask_modulator.get_order() == order
+
+@pytest.mark.parametrize("baud", BAUD_RATES)
+def test_baudrate_setter(ask_modulator, baud):
+    """Test baudrate setter/getter"""
+    ask_modulator.set_baudrate(baud)
+    assert ask_modulator.get_baudrate() == baud
+
+def test_modulate_output_shapes(ask_modulator, test_data):
+    """Test that modulate returns outputs with correct shapes/types"""
+    s_complex, fs, dur = ask_modulator.modulate(test_data)
+
+    assert isinstance(s_complex, np.ndarray)
+    assert isinstance(fs, (int, float))
+    assert isinstance(dur, float)
+    assert len(s_complex) > 0
+
+def test_int_to_bit_conversion(ask_modulator):
+    """Test integer to bit list conversion"""
+    input_data = [0x01, 0x03]  # 00000001, 00000011
+    expected_output = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1]
+
+    result = ask_modulator._int_list_to_bit_list(input_data)
+    assert result == expected_output
+
+def test_demodulation(ask_modulator, test_data):
+    """Test demodulation round-trip"""
+    # Modulate the test data
+    s_complex, fs, _ = ask_modulator.modulate(test_data)
+
+    # Demodulate
+    demod_bits = ask_modulator.demodulate(s_complex, fs)
+
+    # Convert original data to bits for comparison
+    original_bits = ask_modulator._int_list_to_bit_list(test_data)
+
+    # We can't expect perfect reconstruction, but basic checks:
+    assert len(demod_bits) > 0
+    assert isinstance(demod_bits, list)
+    assert len(demod_bits) - 2 <= len(original_bits)  # May lose some bits at edges
+
+def test_modulator_demodulator(ask_modulator, test_data):
+    """Test modulation and demoulation"""
+    test_data_bits = list()
+    for i in test_data:
+        test_data_bits += [int(digit) for digit in bin(i)[2:].zfill(8)]
+
+    samples, fs, dur = ask_modulator.modulate(test_data)
+
+    demod_bits = ask_modulator.demodulate(samples, fs)
+
+    assert test_data_bits == demod_bits
+
+def test_lowpass_filter_preserves_low_frequency_and_attenuates_high_frequency(ask_modulator):
+    """Test low-pass filter"""
+    sample_rate = 1000.0
+    duration = 2.0
+
+    t = np.arange(0, duration, 1 / sample_rate)
+
+    # 50 Hz should pass
+    low_freq = np.sin(2 * np.pi * 50 * t)
+
+    # 200 Hz should be attenuated
+    high_freq = 0.5 * np.sin(2 * np.pi * 200 * t)
+
+    signal = low_freq + high_freq
+
+    filtered = ask_modulator._lowpass_filter(signal, cutoff=100.0, sample_rate=sample_rate)
+
+    # Output properties
+    assert filtered.shape == signal.shape
+    assert filtered.dtype == np.float32
+
+    # Frequency-domain analysis
+    freqs = np.fft.rfftfreq(len(signal), 1 / sample_rate)
+
+    spectrum_in = np.abs(np.fft.rfft(signal))
+    spectrum_out = np.abs(np.fft.rfft(filtered))
+
+    idx_50 = np.argmin(np.abs(freqs - 50))
+    idx_200 = np.argmin(np.abs(freqs - 200))
+
+    gain_50 = spectrum_out[idx_50] / spectrum_in[idx_50]
+    gain_200 = spectrum_out[idx_200] / spectrum_in[idx_200]
+
+    # 50 Hz should remain nearly unchanged
+    assert gain_50 > 0.90
+
+    # 200 Hz should be strongly attenuated
+    assert gain_200 < 0.10
+
+def test_lowpass_filter_has_zero_phase(ask_modulator):
+    """Test zero-phase of the low-pass filter"""
+    sample_rate = 1000.0
+    t = np.arange(0, 1.0, 1 / sample_rate)
+
+    signal = np.sin(2 * np.pi * 20 * t)
+
+    filtered = ask_modulator._lowpass_filter(signal, cutoff=100.0, sample_rate=sample_rate)
+
+    # Maximum correlation should occur at zero lag
+    correlation = np.correlate(filtered, signal, mode="full")
+    lag = np.argmax(correlation) - (len(signal) - 1)
+
+    assert lag == 0
+
+def test_lowpass_filter_short_signal(ask_modulator):
+    """Test low-pass filter for short signals"""
+    sample_rate = 1000.0
+    signal = np.random.randn(30)
+
+    filtered = ask_modulator._lowpass_filter(signal, cutoff=100.0, sample_rate=sample_rate)
+
+    assert filtered.shape == signal.shape
+    assert filtered.dtype == np.float32
+    assert np.all(np.isfinite(filtered))
+
+def test_estimate_levels_recovers_all_clusters(ask_modulator):
+    """Test level estimate when all ASK levels are present"""
+    rng = np.random.default_rng(42)
+
+    true_levels = np.array([0.0, 1.0, 2.0, 3.0])
+
+    samples = np.concatenate([rng.normal(level, 0.03, 200) for level in true_levels])
+
+    estimated = ask_modulator._estimate_levels(samples, order=4)
+
+    assert estimated.dtype == np.float32
+    assert len(estimated) == 4
+
+    np.testing.assert_allclose(estimated, true_levels, atol=0.1)
+
+def test_estimate_levels_identical_samples(ask_modulator):
+    """If every sample is identical, a normalized grid is returned."""
+    samples = np.full(100, 2.5)
+
+    estimated = ask_modulator._estimate_levels(samples, order=4)
+
+    np.testing.assert_allclose(estimated, np.array([0.0, 1 / 3, 2 / 3, 1.0], dtype=np.float32))
+
+    assert estimated.dtype == np.float32
+
+def test_estimate_levels_missing_cluster_falls_back_to_uniform(ask_modulator):
+    """
+    Missing one amplitude level should trigger the uniform-grid fallback.
+    """
+    rng = np.random.default_rng(123)
+
+    # Missing the lowest level
+    samples = np.concatenate([rng.normal(1.0, 0.02, 200), rng.normal(2.0, 0.02, 200), rng.normal(3.0, 0.02, 200)])
+
+    estimated = ask_modulator._estimate_levels(samples, order=4)
+
+    expected = np.linspace(samples.min(), samples.max(), 4, dtype=np.float32)
+
+    np.testing.assert_allclose(estimated, expected, atol=0.05)
+
+def test_estimate_levels_returns_sorted_levels(ask_modulator):
+    """Output is sorted"""
+    rng = np.random.default_rng(7)
+
+    samples = np.concatenate([rng.normal(3.0, 0.05, 100), rng.normal(0.0, 0.05, 100), rng.normal(2.0, 0.05, 100), rng.normal(1.0, 0.05, 100)])
+
+    rng.shuffle(samples)
+
+    estimated = ask_modulator._estimate_levels(samples, order=4)
+
+    assert np.all(np.diff(estimated) > 0)
+
+@pytest.mark.parametrize("order", ORDERS)
+def test_estimate_levels_all_orders(ask_modulator, order):
+    """Parameterized test over the modulation order."""
+    rng = np.random.default_rng(42)
+
+    true_levels = np.arange(order, dtype=float)
+
+    samples = np.concatenate([rng.normal(level, 0.02, 200) for level in true_levels])
+
+    estimated = ask_modulator._estimate_levels(samples, order)
+
+    np.testing.assert_allclose(estimated, true_levels, atol=0.1)
+
+def test_find_symbol_offset(ask_modulator):
+    """Finds the correct offset"""
+    sps = 8
+    offset = 3
+
+    # Two ASK levels sampled at the symbol center
+    symbols = np.array([0, 1] * 50, dtype=float)
+
+    envelope = np.zeros(len(symbols) * sps)
+
+    for i, sym in enumerate(symbols):
+        envelope[i * sps + offset] = sym
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == offset
+
+def test_find_symbol_offset_constant_signal(ask_modulator):
+    """Constant envelope"""
+    sps = 8
+    envelope = np.ones(100)
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == 0
+
+def test_find_symbol_offset_range(ask_modulator):
+    """Result is within bounds"""
+    rng = np.random.default_rng(42)
+
+    sps = 16
+    envelope = rng.normal(size=1000)
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert isinstance(estimated, int)
+    assert 0 <= estimated < sps
+
+def test_find_symbol_offset_with_noise(ask_modulator):
+    """Robust against noise"""
+    rng = np.random.default_rng(42)
+
+    sps = 10
+    offset = 4
+
+    symbols = rng.integers(0, 2, 300).astype(float)
+
+    envelope = rng.normal(scale=0.05, size=len(symbols) * sps)
+
+    for i, sym in enumerate(symbols):
+        envelope[i * sps + offset] += sym
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == offset
+
+@pytest.mark.parametrize("sps,offset", [
+    (4, 0),
+    (4, 2),
+    (8, 3),
+    (10, 7),
+    (16, 11),
+])
+def test_find_symbol_offset(ask_modulator, sps, offset):
+    """Parametized find symbol offset test"""
+    rng = np.random.default_rng(42)
+
+    symbols = rng.integers(0, 2, 300).astype(float)
+
+    envelope = rng.normal(scale=0.02, size=len(symbols) * sps)
+
+    for i, sym in enumerate(symbols):
+        envelope[i * sps + offset] += sym
+
+    estimated = ask_modulator._find_symbol_offset(envelope, sps)
+
+    assert estimated == offset
+
+@pytest.mark.parametrize(
+    "amps, expected",
+    [
+        ([0.05, 0.9, 1.95, 2.8], [0, 1, 2, 3]),
+        ([0.5, 1.5], [0, 1]),                   # midpoint -> lower index
+        ([-1.0, 4.0], [0, 3]),                  # outside range
+        ([0.0, 1.0, 2.0, 3.0], [0, 1, 2, 3]),   # exact levels
+    ],
+)
+def test_decide_symbols(ask_modulator, amps, expected):
+    """Correct symbol decisions"""
+    levels = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float32)
+
+    symbols = ask_modulator._decide_symbols(np.asarray(amps), levels)
+
+    np.testing.assert_array_equal(symbols, np.asarray(expected, dtype=np.uint8))
+
+    assert symbols.dtype == np.uint8
+
+def test_decide_symbols_midpoints(ask_modulator):
+    """Midpoint (tie) behavior"""
+    levels = np.array([0.0, 1.0, 2.0], dtype=np.float32)
+
+    symbol_amps = np.array([
+        0.5,   # between 0 and 1
+        1.5,   # between 1 and 2
+    ])
+
+    symbols = ask_modulator._decide_symbols(symbol_amps, levels)
+
+    expected = np.array([0, 1], dtype=np.uint8)
+
+    np.testing.assert_array_equal(symbols, expected)
+
+def test_decide_symbols_exact_levels(ask_modulator):
+    """Exact level values"""
+    levels = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float32)
+
+    symbols = ask_modulator._decide_symbols(levels, levels)
+
+    np.testing.assert_array_equal(symbols, np.arange(4, dtype=np.uint8))
+
+def test_decide_symbols_outside_range(ask_modulator):
+    """Values outside the range"""
+    levels = np.array([0.0, 1.0, 2.0], dtype=np.float32)
+
+    symbol_amps = np.array([-10.0, 10.0])
+
+    symbols = ask_modulator._decide_symbols(symbol_amps, levels)
+
+    expected = np.array([0, 2], dtype=np.uint8)
+
+    np.testing.assert_array_equal(symbols, expected)
+
+@pytest.mark.parametrize(
+    "indices,bps,msb_first,expected",
+    [
+        (
+            [0, 1, 2, 3],
+            2,
+            True,
+            [0, 0, 0, 1, 1, 0, 1, 1],
+        ),
+        (
+            [0, 1, 2, 3],
+            2,
+            False,
+            [0, 0, 1, 0, 0, 1, 1, 1],
+        ),
+        (
+            [5, 2],
+            3,
+            True,
+            [1, 0, 1, 0, 1, 0],
+        ),
+        (
+            [5, 2],
+            3,
+            False,
+            [1, 0, 1, 0, 1, 0],
+        ),  # 5=101 and 2=010 are palindromes
+    ],
+)
+def test_symbols_to_bits(ask_modulator, indices, bps, msb_first, expected):
+    """MSB-first (default)"""
+    bits = ask_modulator._symbols_to_bits(np.asarray(indices, dtype=np.uint8), bits_per_symbol=bps, msb_first=msb_first)
+
+    np.testing.assert_array_equal(bits, np.asarray(expected, dtype=np.uint8))
+
+    assert bits.dtype == np.uint8
+
+def test_symbols_to_bits_lsb_first(ask_modulator):
+    """LSB-first"""
+    indices = np.array([0, 1, 2, 3], dtype=np.uint8)
+
+    bits = ask_modulator._symbols_to_bits( indices, bits_per_symbol=2, msb_first=False)
+
+    expected = np.array([
+        0, 0,   # 0 -> 00
+        1, 0,   # 1 -> 10
+        0, 1,   # 2 -> 01
+        1, 1,   # 3 -> 11
+    ], dtype=np.uint8)
+
+    np.testing.assert_array_equal(bits, expected)
+
+def test_symbols_to_bits_three_bits(ask_modulator):
+    """Three bits per symbol"""
+    indices = np.array([5, 2], dtype=np.uint8)
+
+    bits = ask_modulator._symbols_to_bits(indices, bits_per_symbol=3)
+
+    expected = np.array([
+        1, 0, 1,   # 5 -> 101
+        0, 1, 0,   # 2 -> 010
+    ], dtype=np.uint8)
+
+    np.testing.assert_array_equal(bits, expected)
+
+def test_symbols_to_bits_empty(ask_modulator):
+    """Empty input"""
+    bits = ask_modulator._symbols_to_bits(np.array([], dtype=np.uint8), bits_per_symbol=2)
+
+    assert bits.dtype == np.uint8
+    assert bits.size == 0
+
+@pytest.mark.parametrize(
+    "order,bits,expected",
+    [
+        (
+            4,
+            [0, 0, 0, 1, 1, 0, 1, 1],
+            [0/3, 1/3, 2/3, 3/3],
+        ),
+        (
+            4,
+            [1, 0, 1],          # padded -> 1010
+            [2/3, 2/3],
+        ),
+        (
+            8,
+            [0, 0, 0, 1, 0, 1, 1, 1, 1],
+            [0/7, 5/7, 7/7],
+        ),
+    ],
+)
+def test_bits_to_symbols(ask_modulator, order, bits, expected, monkeypatch):
+    """Test bits to symbols"""
+    monkeypatch.setattr(ask_modulator, "get_order", lambda: order)
+
+    symbols = ask_modulator._bits_to_symbols(np.asarray(bits, dtype=np.uint8))
+
+    np.testing.assert_allclose(symbols, np.asarray(expected, dtype=np.float32))
+
+    assert symbols.dtype == np.float32
+
+def test_bits_to_symbols_empty(ask_modulator):
+    """Empty input test"""
+    bits = np.array([], dtype=np.uint8)
+
+    symbols = ask_modulator._bits_to_symbols(bits)
+
+    assert symbols.dtype == np.float32
+    assert symbols.size == 0
+
+# Return-value contract
+
+def test_modulate_time_domain_returns_three_arrays(ask_modulator):
+    """modulate_time_domain must return exactly three numpy arrays"""
+    result = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert len(result) == 4
+    s_t, t, fs, dur = result
+    assert isinstance(s_t,  np.ndarray)
+    assert isinstance(t,    np.ndarray)
+    assert isinstance(fs,   int)
+    assert isinstance(dur,  float)
+
+def test_modulate_time_domain_output_dtype(ask_modulator):
+    """All three output arrays must be float64"""
+    s_t, t, fs, dur = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert s_t.dtype    == np.float64
+    assert t.dtype      == np.float64
+
+def test_modulate_time_domain_arrays_same_length(ask_modulator):
+    """t, envelope, and signal must have identical length"""
+    s_t, t, fs, dur = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert len(s_t) == len(t)
+
+def test_modulate_time_domain_arrays_are_1d(ask_modulator):
+    """All output arrays must be one-dimensional"""
+    s_t, t, fs, dur = ask_modulator.modulate_time_domain([0xAA], _SPS, _FS)
+
+    assert s_t.ndim     == 1
+    assert t.ndim       == 1
+
+# Discrete time axis
+
+def test_modulate_time_domain_time_starts_at_zero(ask_modulator):
+    """Time axis must start at t[0] = 0"""
+    _, t, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, _FS)
+
+    assert t[0] == 0.0
+
+# Output length
+
+@pytest.mark.parametrize("n_bytes,order,sps,expected_symbols", [
+    (1, 2, 16,  8),   # 8 bits / 1 bps = 8 symbols
+    (1, 4, 16,  4),   # 8 bits / 2 bps = 4 symbols
+    (1, 8, 16,  3),   # 8 bits / 3 bps → padded = 3 symbols
+    (2, 2,  8, 16),
+    (4, 4,  8, 16),
+])
+def test_modulate_time_domain_output_length(n_bytes, order, sps, expected_symbols):
+    """Output length must equal n_symbols * samples_per_symbol"""
+    mod = ASK(order=order, baud=9600)
+    s_t, t, fs, dur = mod.modulate_time_domain([0xAA] * n_bytes, sps, _FS)
+
+    assert len(s_t)     == expected_symbols * sps
+    assert len(t)       == expected_symbols * sps
+
+def test_modulate_time_domain_length_scales_with_data(ask_modulator):
+    """Output length must double when input data doubles"""
+    _, t1, _, _ = ask_modulator.modulate_time_domain([0xAA],       _SPS, _FS)
+    _, t2, _, _ = ask_modulator.modulate_time_domain([0xAA, 0x55], _SPS, _FS)
+
+    assert len(t2) == 2 * len(t1)
+
+def test_modulate_time_domain_length_scales_with_sps(ask_modulator):
+    """Output length must scale linearly with samples_per_symbol"""
+    _, t8,  _, _ = ask_modulator.modulate_time_domain([0xFF], 8,  _FS)
+    _, t16, _, _ = ask_modulator.modulate_time_domain([0xFF], 16, _FS)
+
+    assert len(t16) == 2 * len(t8)
+
+def test_modulate_time_domain_signal_zero_when_envelope_zero(ask_modulator):
+    """0x00 -> envelope = 0 -> signal must be zero everywhere"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0x00], _SPS, _FS)
+
+    np.testing.assert_array_equal(signal, 0.0)
+
+def test_modulate_time_domain_signal_peak_equals_one(ask_modulator):
+    """0xFF (OOK) -> envelope = 1 -> |signal|_max must equal 1"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, _FS)
+
+    assert np.max(np.abs(signal)) == pytest.approx(1.0, abs=1e-2)
+
+def test_modulate_time_domain_signal_no_nan_or_inf(ask_modulator, test_data):
+    """Output must not contain NaN or Inf for arbitrary input data"""
+    signal, t, _, _ = ask_modulator.modulate_time_domain(test_data, _SPS, _FS)
+
+    assert not np.any(np.isnan(signal))
+    assert not np.any(np.isinf(t))
+
+# Carrier phase
+
+def test_modulate_time_domain_phase_zero_first_sample(ask_modulator):
+    """φ₀ = 0, bit = 1, t[0] = 0  ->  s[0] = cos(0) = 1"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=0.0)
+
+    assert signal[0] == pytest.approx(1.0, abs=1e-12)
+
+def test_modulate_time_domain_phase_pi_inverts_signal(ask_modulator):
+    """φ₀ = pi shifts the cosine by pi, inverting every sample"""
+    s0, _, _, _   = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=0.0)
+    s_pi, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=np.pi)
+
+    np.testing.assert_allclose(s_pi, -s0, atol=1e-12)
+
+def test_modulate_time_domain_phase_2pi_equals_zero(ask_modulator):
+    """φ₀ = 2pi must produce the same signal as φ₀ = 0"""
+    s0, _, _, _    = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=0.0)
+    s_2pi, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=2 * np.pi)
+
+    np.testing.assert_allclose(s_2pi, s0, atol=1e-12)
+
+@pytest.mark.parametrize("phase", [0.0, np.pi / 4, np.pi / 2, np.pi, 3 * np.pi / 2])
+def test_modulate_time_domain_phase_first_sample_parametrized(ask_modulator, phase):
+    """s[0] = cos(φ₀) for any initial phase when bit = 1"""
+    signal, _, _, _ = ask_modulator.modulate_time_domain([0xFF], _SPS, carrier_phase=phase)
+
+    assert signal[0] == pytest.approx(np.cos(phase), abs=1e-12)

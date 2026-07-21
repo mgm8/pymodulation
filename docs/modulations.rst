@@ -12,6 +12,45 @@
 Modulations
 ***********
 
+ASK
+===
+
+Amplitude Shift Keying (ASK) is a digital modulation technique in which the amplitude of a carrier signal is varied according to the transmitted digital information while its frequency and phase remain constant. In its binary form (2-ASK), two different amplitude levels are used to represent the binary symbols 0 and 1.
+
+The ASK signal can be expressed as:
+
+.. math::
+
+    s(t) = A_i \cos(2\pi f_c t)
+
+where:
+
+* :math:`A_i` is the carrier amplitude associated with the transmitted symbol;
+* :math:`f_c` is the carrier frequency.
+
+For binary ASK, :math:A_i assumes one of two possible values, corresponding to the transmitted bit. Since information is conveyed through the carrier amplitude, ASK receivers are more susceptible to amplitude distortions caused by channel noise, fading, and interference than phase- or frequency-based modulation schemes. Nevertheless, ASK offers a simple transmitter and receiver architecture, making it suitable for low-cost and low-power wireless communication systems.
+
+Compared to modulation schemes such as BPSK and FSK, ASK generally provides lower noise immunity but requires relatively simple hardware implementation. Consequently, it is commonly employed in applications such as RFID systems, optical communications, short-range wireless devices, and low-data-rate telemetry links.
+
+OOK
+***
+
+On-Off Keying (OOK) is the simplest form of binary ASK modulation. In OOK, one binary symbol is represented by transmitting the carrier at a fixed amplitude, while the other is represented by the absence of the carrier. Typically, a binary 1 is transmitted as a carrier with amplitude :math:`A`, whereas a binary 0 corresponds to zero amplitude.
+
+The OOK signal can be expressed as:
+
+.. math::
+
+    s(t) =
+    \begin{cases}
+    A \cos(2\pi f_c t), & \text{for binary } 1, \\
+    0, & \text{for binary } 0.
+    \end{cases}
+
+Because the transmitter is inactive during the transmission of one of the binary symbols, OOK provides improved power efficiency compared to conventional ASK. This characteristic makes it particularly attractive for battery-powered and energy-constrained devices. However, the absence of a carrier during part of the transmission increases the modulation's sensitivity to channel impairments and noise, requiring adequate receiver synchronization and detection techniques.
+
+Due to its simplicity and low power consumption, OOK is widely used in low-cost wireless sensors, remote controls, passive RFID systems, optical communication links, and Internet of Things (IoT) devices.
+
 BPSK
 ====
 
