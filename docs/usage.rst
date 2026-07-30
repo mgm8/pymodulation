@@ -124,3 +124,26 @@ This modulation can be used in a manner almost identical to GFSK modulation, wit
     bits, bb_sig = mod.demodulate(fs, samples)
 
     print("Demodulated bits:", list(map(int, bits)))
+
+QPSK
+====
+
+The QPSK modulation can be used through the *QPSK* class, using the modulate and demodulate methods. An example of usage can be seen in the code below:
+
+.. code-block:: python
+
+    from pymodulation import QPSK
+
+    mod = QPSK(9600)    # Baudrate = 9600 bps
+
+    data = list(range(100))
+
+    samples, fs, dur = mod.modulate(data)
+
+    print("IQ Samples:", samples[:10])
+
+    bits = mod.demodulate(samples, fs)
+
+    print("Demodulated bits:", list(map(int, bits)))
+
+The *modulate* method returns the IQ samples of the generated signal, the corresponding sampling rate, and the signal duration in seconds. The *demodulate* method allows the demodulation of a QPSK signal, taking the corresponding IQ samples as input, and producing as output the data bitstream contained in the signal and the baseband signal samples (in NRZ format).
