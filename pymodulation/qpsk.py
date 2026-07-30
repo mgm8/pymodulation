@@ -21,7 +21,6 @@
 #
 
 import numpy as np
-from scipy.signal import upfirdn
 
 from pymodulation.modulation import Modulation
 
@@ -31,6 +30,14 @@ class QPSK(Modulation):
     """
     QPSK modulator/demodulator.
     """
+
+    # Gray-coded QPSK constellation: dibit -> complex symbol
+    QPSK_MAP = {
+        (0, 0): complex(1, 1),
+        (0, 1): complex(-1, 1),
+        (1, 1): complex(-1, -1),
+        (1, 0): complex(1, -1),
+    }
 
     def modulate(self, data: list, L=_QPSK_DEFAULT_OVERSAMPLING_FACTOR):
         """
@@ -45,9 +52,16 @@ class QPSK(Modulation):
         :return: Tuple of (IQ samples, sample rate in Hz, transmission duration in seconds)
         :rtype: tuple(np.ndarray, float, float)
         """
-        # QPSK
+        s_bb, _ = self.modulate_time_domain(data, L)
+        samples = s_bb.astype(np.complex64)
 
-        return None
+        # QPSK conveys two bits per symbol.  The public baudrate follows the
+        # convention used by the other modulations and denotes the bit rate.
+        f_sym = self.get_baudrate() / 2
+        fs = L * f_sym
+        dur = len(data) * 8 / self.get_baudrate()
+
+        return samples, fs, dur
 
     def modulate_time_domain(self, data, L=_QPSK_DEFAULT_OVERSAMPLING_FACTOR):
         """
@@ -65,9 +79,20 @@ class QPSK(Modulation):
         :return: Discrete time base (length N*L).
         :rtype: np.ndarray
         """
-        # TODO
+        bits = self._int_list_to_bit_list(data)
+        if len(bits) % 2:
+            bits.append(0)
 
-        return None
+        symbols = np.array(
+            [self.QPSK_MAP[(bits[i], bits[i + 1])] for i in range(0, len(bits), 2)],
+            dtype=np.complex128,
+        ) / np.sqrt(2)
+
+        # Rectangular pulse shaping: each symbol occupies L samples.
+        s_bb = np.repeat(symbols, L)
+        t = np.arange(len(s_bb))
+
+        return s_bb, t
 
     def demodulate(self, samples: np.ndarray, fs) -> list:
         """
@@ -82,6 +107,17 @@ class QPSK(Modulation):
         :return: Demodulated bits (0 or 1).
         :rtype: list
         """
-        # TODO
+        # The sample rate is L times the QPSK symbol rate (baudrate / 2).
+        L = int(fs / (self.get_baudrate() / 2))
 
-        return None
+        # Integrate each rectangular symbol interval and sample at its end.
+        integrated = np.convolve(samples, np.ones(L))
+        symbols = integrated[L - 1::L]
+
+        bits = []
+        for symbol in symbols:
+            # This is the inverse of QPSK_MAP: the first bit selects the Q
+            # arm and the second bit selects the I arm.
+            bits.extend((int(symbol.imag < 0), int(symbol.real < 0)))
+
+        return bits
